@@ -27,6 +27,7 @@ exclude = [
     "site-packages",
     "venv",
     "client/ayon_hiero/vendor",
+    "client/ayon_hiero/api/startup/Python",
 ]
 
 # Same as Black.
