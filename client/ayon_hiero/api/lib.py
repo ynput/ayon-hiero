@@ -1270,8 +1270,8 @@ def sync_clip_name_to_data_asset(track_items_list):
             continue
 
         # fix data if wrong name
-        if data["asset"] != ti_name:
-            data["asset"] = ti_name
+        if data["asset_name"] != ti_name:
+            data["asset_name"] = ti_name
             # remove the original tag
             tag = get_trackitem_openpype_tag(track_item)
             track_item.removeTag(tag)
