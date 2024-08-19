@@ -554,21 +554,8 @@ def get_trackitem_openpype_data(track_item):
         key = k.replace("tag.", "")
 
         try:
-            # capture exceptions which are related to strings only
-            if re.match(r"^[\d]+$", v):
-                value = int(v)
-            elif re.match(r"^True$", v):
-                value = True
-            elif re.match(r"^False$", v):
-                value = False
-            elif re.match(r"^None$", v):
-                value = None
-            elif re.match(r"^[\w\d_]+$", v):
-                value = v
-            else:
-                value = ast.literal_eval(v)
-        except (ValueError, SyntaxError) as msg:
-            log.warning(msg)
+            value = ast.literal_eval(v)
+        except (ValueError, SyntaxError):
             value = v
 
         data[key] = value
