@@ -10,6 +10,7 @@ import hiero
 # # developer reload modules
 from pprint import pformat
 
+from ayon_hiero.api import get_publish_attribute
 
 class PrecollectInstances(pyblish.api.ContextPlugin):
     """Collect all Track items selection."""

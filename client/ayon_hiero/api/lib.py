@@ -549,6 +549,9 @@ def get_trackitem_openpype_data(track_item):
 
     # get tag metadata attribute
     tag_data = deepcopy(dict(tag.metadata()))
+    if tag_data.get("tag.json_metadata"):
+        return json.loads(tag_data.get("tag.json_metadata"))
+
     # convert tag metadata to normal keys names and values to correct types
     for k, v in tag_data.items():
         key = k.replace("tag.", "")
@@ -595,9 +598,11 @@ def set_publish_attribute(tag, value):
         tag (hiero.core.Tag): a tag object
         value (bool): True or False
     """
-    tag_data = tag.metadata()
+    tag_data = dict(tag.metadata())
     # set data to the publish attribute
-    tag_data.setValue("tag.publish", str(value))
+    metadata = json.loads(tag_data.get("tag.json_metadata"))
+    metadata["publish"] = value
+    tag_data.setValue("tag.json_metadata", metadata)
 
 
 def get_publish_attribute(tag):
@@ -609,9 +614,7 @@ def get_publish_attribute(tag):
     """
     tag_data = tag.metadata()
     # get data to the publish attribute
-    value = tag_data.value("tag.publish")
-    # return value converted to bool value. Atring is stored in tag.
-    return ast.literal_eval(value)
+    return json.loads(tag_data.get("tag.json_metadata"))["publish"]
 
 
 def sync_avalon_data_to_workfile():

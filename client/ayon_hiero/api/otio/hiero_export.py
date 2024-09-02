@@ -239,13 +239,7 @@ def create_otio_markers(otio_item, item):
         for key, value in tag.metadata().dict().items():
             _key = key.replace("tag.", "")
 
-            try:
-                # capture exceptions which are related to strings only
-                _value = ast.literal_eval(value)
-            except (ValueError, SyntaxError):
-                _value = value
-
-            metadata.update({_key: _value})
+            metadata.update({_key: value})
 
         # Store the source item for future import assignment
         metadata['hiero_source_type'] = item.__class__.__name__

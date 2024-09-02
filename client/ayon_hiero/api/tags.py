@@ -86,18 +86,10 @@ def update_tag(tag, data):
     # get metadata key from data
     data_mtd = data.get("metadata", {})
 
-    # set all data metadata to tag metadata
-    for _k, _v in data_mtd.items():
-        value = str(_v)
-        if isinstance(_v, dict):
-            value = json.dumps(_v)
-
-        # set the value
-        mtd.setValue(
-            "tag.{}".format(str(_k)),
-            value
-        )
-
+    mtd.setValue(
+        f"tag.json_metadata",
+        json.dumps(data_mtd)
+    )
     # set note description of tag
     tag.setNote(str(data["note"]))
     return tag
