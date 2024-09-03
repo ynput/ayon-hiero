@@ -438,13 +438,18 @@ def get_track_openpype_data(track, container_name=None):
 
     # get tag metadata attribute
     tag_data = deepcopy(dict(tag.metadata()))
+    if tag_data.get("tag.json_metadata"):
+        tag_data = json.loads(tag_data["tag.json_metadata"])
 
     for obj_name, obj_data in tag_data.items():
         obj_name = obj_name.replace("tag.", "")
 
         if obj_name in ["applieswhole", "note", "label"]:
             continue
-        return_data[obj_name] = json.loads(obj_data)
+        if isinstance(obj_data, dict):
+            return_data[obj_name] = obj_data
+        else:
+            return_data[obj_name] = json.loads(obj_data)
 
     return (
         return_data[container_name]
