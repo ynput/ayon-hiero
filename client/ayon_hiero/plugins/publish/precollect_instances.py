@@ -17,6 +17,7 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
     order = pyblish.api.CollectorOrder - 0.49
     label = "Precollect Instances"
     hosts = ["hiero"]
+    families = ["plate", "shot", "audio"]
 
     audio_track_items = []
 
