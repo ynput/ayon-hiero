@@ -615,11 +615,11 @@ def set_publish_attribute(tag, value):
         tag (hiero.core.Tag): a tag object
         value (bool): True or False
     """
-    tag_data = dict(tag.metadata())
-    # set data to the publish attribute
-    metadata = json.loads(tag_data.get("tag.json_metadata"))
+    tag_data = tag.metadata()
+    tag_json_data = dict(tag_data).get("tag.json_metadata")
+    metadata = json.loads(tag_json_data)
     metadata["publish"] = value
-    tag_data.setValue("tag.json_metadata", metadata)
+    tag_data.setValue("tag.json_metadata", json.dumps(metadata))
 
 
 def get_publish_attribute(tag):

@@ -151,6 +151,7 @@ def create_otio_reference(clip):
         })
 
     # add resolution metadata
+    import rpdb ; rpdb.Rpdb().set_trace()
     metadata.update({
         "openpype.source.colourtransform": clip.sourceMediaColourTransform(),
         "openpype.source.width": int(media_source.width()),
