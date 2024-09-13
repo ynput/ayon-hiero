@@ -619,7 +619,7 @@ def set_publish_attribute(tag, value):
     # set data to the publish attribute
     metadata = json.loads(tag_data.get("tag.json_metadata"))
     metadata["publish"] = value
-    tag_data.setValue("tag.json_metadata", metadata)
+    tag.metadata().setValue("tag.json_metadata", metadata)
 
 
 def get_publish_attribute(tag):
