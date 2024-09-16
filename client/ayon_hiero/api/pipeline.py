@@ -185,7 +185,7 @@ def ls():
 
     # append all video tracks
     for track in (lib.get_current_sequence() or []):
-        if type(track) != hiero.core.VideoTrack:
+        if type(track) is not hiero.core.VideoTrack:
             continue
         all_items.append(track)
 
@@ -243,7 +243,7 @@ def parse_container(item, validate=True):
         return container
 
     # convert tag metadata to normal keys names
-    if type(item) == hiero.core.VideoTrack:
+    if type(item) is hiero.core.VideoTrack:
         return_list = []
         _data = lib.get_track_openpype_data(item)
 
@@ -285,7 +285,7 @@ def update_container(item, data=None):
     data = data or {}
     data = deepcopy(data)
 
-    if type(item) == hiero.core.VideoTrack:
+    if type(item) is hiero.core.VideoTrack:
         # form object data for test
         object_name = data["objectName"]
 
