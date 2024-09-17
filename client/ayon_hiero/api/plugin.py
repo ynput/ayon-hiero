@@ -764,9 +764,6 @@ class PublishClip:
         else:
             self.tag_data.update({"reviewTrack": None})
 
-        # create pype tag on track_item and add data
-        lib.imprint(self.track_item, self.tag_data)
-
         return self.track_item
 
     def _populate_track_item_default_data(self):

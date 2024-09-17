@@ -89,23 +89,33 @@ def update_tag(tag, data):
     # get metadata key from data
     data_mtd = data.get("metadata", {})
 
-    # set all data metadata to tag metadata
-    for _k, _v in data_mtd.items():
-        value = str(_v)
-        if isinstance(_v, dict):
-            value = json.dumps(_v)
-
-        # set the value
-        mtd.setValue(
-            "tag.{}".format(str(_k)),
-            value
-        )
-
+    mtd.setValue(
+        f"tag.json_metadata",
+        json.dumps(data_mtd)
+    )
     # set note description of tag
     if "note" in data:
         tag.setNote(str(data["note"]))
 
     return tag
+
+
+def get_tag_data(tag):
+    """
+    Args:
+        tag (hiero.core.Tag): The tag to retrieve data from.
+
+    Returns:
+        dict. The tag data.
+    """
+    tag_data = dict(tag.metadata())
+
+    try:
+        json_data = tag_data["tag.json_metadata"]
+        return json.loads(json_data)
+
+    except (KeyError, json.JSONDecoderError):
+        return {}
 
 
 def get_or_create_workfile_tag(create=False):

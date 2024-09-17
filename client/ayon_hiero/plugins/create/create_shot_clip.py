@@ -45,6 +45,18 @@ CLIP_ATTR_DEFS = [
         label="Handle end"
     ),
     NumberDef(
+        "frameStart",
+        default=0,
+        label="Frame start",
+        disabled=True,
+    ),
+    NumberDef(
+        "frameEnd",
+        default=0,
+        label="Frame end",
+        disabled=True,
+    ),    
+    NumberDef(
         "clipIn",
         default=0,
         label="Clip in",
@@ -115,7 +127,7 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
         for created_inst, _changes in update_list:
             track_item = created_inst.transient_data["track_item"]
             tag = lib.get_trackitem_ayon_tag(track_item)            
-            tag_data = dict(tag.metadata())
+            tag_data = tags.get_tag_data(tag)
 
             try:
                 instances_data = tag_data[_CONTENT_ID]
@@ -137,20 +149,19 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
         """
         for instance in instances:
             track_item = instance.transient_data["track_item"]
-            tag_data = lib.get_timeline_item_ayon_tag(track_item)
+            tag = lib.get_trackitem_ayon_tag(track_item)
+            tag_data = tags.get_tag_data(tag)
             instances_data = tag_data.get(_CONTENT_ID, {})
             instances_data.pop(self.identifier, None)
             self._remove_instance_from_context(instance)
 
             # Remove markers if deleted all of the instances
             if not instances_data: 
-                track_item.DeleteMarkersByColor(constants.AYON_MARKER_COLOR)
-                if track_item.GetClipColor() != constants.SELECTED_CLIP_COLOR:
-                    track_item.ClearClipColor()
+                track_item.removeTag(tag)
 
             # Push edited data in marker
             else:
-                lib.set_trackitem_ayon_tag(track_item, data=tag_data)
+                tags.update_tag(tag, {"metadata": tag_data})
 
 
 class HieroShotInstanceCreator(_HieroInstanceCreator):
@@ -169,6 +180,76 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
         ]
         instance_attributes.extend(CLIP_ATTR_DEFS)
         return instance_attributes
+
+class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
+    """ Base clip product creator.
+    """
+
+    def get_instance_attr_defs(self):
+
+        current_sequence = lib.get_current_sequence()
+        if current_sequence is not None:
+            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+        else:
+            gui_tracks = []
+
+        instance_attributes = [
+            TextDef(
+                "parentInstance",
+                label="Linked to",
+                disabled=True,
+            )           
+        ]
+        if self.product_type == "plate":
+            instance_attributes.extend([
+                BoolDef(
+                    "vSyncOn",
+                    label="Enable Vertical Sync",
+                    tooltip="Switch on if you want clips above "
+                            "each other to share its attributes",
+                    default=True,
+                ),            
+                EnumDef(
+                    "vSyncTrack",
+                    label="Hero Track",
+                    tooltip="Select driving track name which should "
+                            "be mastering all others",
+                    items=gui_tracks or ["<nothing to select>"],
+                ), 
+            ])
+
+        return instance_attributes
+
+
+class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
+    """Plate product type creator class"""
+    identifier = "io.ayon.creators.hiero.plate"
+    product_type = "plate"
+    label = "Editorial Plate"
+
+    def create(self, instance_data, _):
+        """Return a new CreateInstance for new shot from Resolve.
+
+        Args:
+            instance_data (dict): global data from original instance
+
+        Return:
+            CreatedInstance: The created instance object for the new shot.
+        """
+        if instance_data.get("clip_variant") == "<track_name>":
+            instance_data["variant"] = instance_data["hierarchyData"]["track"]
+
+        else:
+            instance_data["variant"] = instance_data["clip_variant"]
+
+        return super().create(instance_data, None)
+
+
+class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
+    """Audio product type creator class"""
+    identifier = "io.ayon.creators.hiero.audio"
+    product_type = "audio"
+    label = "Editorial Audio"
 
 
 class CreateShotClip(plugin.HieroCreator):
@@ -315,16 +396,17 @@ OTIO file.
                 label=header_label("Publish Settings")
             ),
             EnumDef(
-                "subsetName",
-                label="Subset Name",
-                tooltip="chose subset name pattern, if <track_name> "
+                "clip_variant",
+                label="Product Variant",
+                tooltip="Chose variant which will be then used for "
+                        "product name, if <track_name> "
                         "is selected, name of track layer will be used",
                 items=['<track_name>', 'main', 'bg', 'fg', 'bg', 'animatic'],
             ),
             EnumDef(
-                "subsetFamily",
-                label="Subset Family",
-                tooltip="What use of this subset is for",
+                "productType",
+                label="Product Type",
+                tooltip="How the product will be used",
                 items=['plate', 'take'],
             ),
             EnumDef(
@@ -335,7 +417,7 @@ OTIO file.
                 items=['< none >'] + gui_tracks,
             ),
             BoolDef(
-                "audio",
+                "export_audio",
                 label="Include audio",
                 tooltip="Process subsets with corresponding audio",
                 default=False,
@@ -383,7 +465,7 @@ OTIO file.
 
         self.log.debug(f"Selected: {self.selected}")
 
-        # get ui output for track name for vertical sync
+        instance_data["clip_variant"] = pre_create_data["clip_variant"]
 
         # sort selected trackItems by
         sorted_selected_track_items = list()
@@ -400,18 +482,17 @@ OTIO file.
         # detect enabled creators for review, plate and audio
         all_creators = {
             "io.ayon.creators.hiero.shot": True,
-            #"io.ayon.creators.hiero.plate": True,
-            #"io.ayon.creators.hiero.audio": pre_create_data.get("export_audio", False),
+            "io.ayon.creators.hiero.plate": True,
+            "io.ayon.creators.hiero.audio": pre_create_data.get("export_audio", False),
         }
         enabled_creators = tuple(cre for cre, enabled in all_creators.items() if enabled)
 
         instances = []
+
         for idx, track_item in enumerate(sorted_selected_track_items):
 
-#            import rpdb ; rpdb.Rpdb().set_trace()
             instance_data["clip_index"] = track_item.guid()
 
-#            import rpdb ; rpdb.Rpdb().set_trace()
             # convert track item to timeline media pool item
             publish_clip = plugin.PublishClip(
                 track_item,
@@ -432,16 +513,17 @@ OTIO file.
             instance_data.update(publish_clip.tag_data)
 
             # Delete any existing instances previously generated for the clip.
-#            prev_tag_data = lib.get_timeline_item_ayon_tag(track_item)            
-#            if prev_tag_data:
-#                for creator_id, inst_data in prev_tag_data[_CONTENT_ID].items():
-#                    creator = self.create_context.creators[creator_id]
-#                    prev_instances = [
-#                        inst for inst_id, inst 
-#                        in self.create_context.instances_by_id.items()
-#                        if inst_id == inst_data["instance_id"] 
-#                    ]
-#                    creator.remove_instances(prev_instances)
+            prev_tag = lib.get_trackitem_ayon_tag(track_item)            
+            if prev_tag:
+                prev_tag_data = tags.get_tag_data(prev_tag)
+                for creator_id, inst_data in prev_tag_data[_CONTENT_ID].items():
+                    creator = self.create_context.creators[creator_id]
+                    prev_instances = [
+                        inst for inst_id, inst 
+                        in self.create_context.instances_by_id.items()
+                        if inst_id == inst_data["instance_id"] 
+                    ]
+                    creator.remove_instances(prev_instances)
 
             # Create new product(s) instances.
             clip_instances = {}
@@ -453,13 +535,25 @@ OTIO file.
 
                 # Shot creation
                 if creator_id == shot_creator_id:
+                    track_item_duration = track_item.duration()
+                    workfileFrameStart = \
+                        sub_instance_data["workfileFrameStart"]                    
                     sub_instance_data.update({
                         "creator_attributes": {
                             "folderPath": shot_folder_path,
                             "workfileFrameStart": \
                                 sub_instance_data["workfileFrameStart"],
                             "handleStart": sub_instance_data["handleStart"],
-                            "handleEnd": sub_instance_data["handleEnd"]
+                            "handleEnd": sub_instance_data["handleEnd"],
+                            "frameStart": workfileFrameStart,
+                            "frameEnd": (workfileFrameStart + 
+                                track_item_duration),
+                            "clipIn": track_item.timelineIn(),
+                            "clipOut": track_item.timelineOut(),
+                            "clipDuration": track_item_duration,
+                            "sourceIn": track_item.sourceIn(), 
+                            "sourceOut": (track_item.sourceOut() + 
+                                track_item_duration),                 
                         },
                         "label": (
                             f"{shot_folder_path} shot"
@@ -487,24 +581,7 @@ OTIO file.
                 self._add_instance_to_context(instance)
                 clip_instances[creator_id] = instance.data_to_store()
 
-            # TODO: set 'task', 'family' and 'variant' correctly
-            #  and build its subset name correctly
-            # TODO: We can't set the asset because the asset does not exist
-            #   and the new publisher doesn't like non-existing assets
-            # instance_data["asset"] = publish_clip.tag_data["asset"]
-            # instance_data["variant"] = publish_clip.subset_name
-
-            # Create the Publisher instance
-            #instance = CreatedInstance(
-            #    family=self.family,
-            #    subset_name=publish_clip.subset_name,
-            #    data=instance_data,
-            #    creator=self
-            #)
-            instance.transient_data["track_item"] = track_item
-            self._add_instance_to_context(instance)
-
-            lib.set_trackitem_ayon_tag(
+            lib.imprint(
                 track_item,
                 data={
                     _CONTENT_ID: clip_instances,
@@ -515,27 +592,46 @@ OTIO file.
 
         return instances
 
+    def _create_and_add_instance(self, data, creator_id, 
+            track_item, instances):
+        """
+        Args:
+            data (dict): The data to re-recreate the instance from.
+            creator_id (str): The creator id to use.
+            track_item (obj): The associated track item.
+            instances (list): Result instance container.
+
+        Returns:
+            CreatedInstance: The newly created instance.
+        """
+        creator = self.create_context.creators[creator_id]
+        instance = creator.create(data, None)
+        instance.transient_data["track_item"] = track_item
+        self._add_instance_to_context(instance)
+        instances.append(instance)
+        return instance
+
     def collect_instances(self):
         """Collect all created instances from current timeline."""
-
-        # TODO: is this really what we want to do here...
-        # investigate
-        #gui_tracks = [track for track in lib.get_current_sequence().videoTracks()]
-        gui_tracks = []
+        current_sequence = lib.get_current_sequence()
+        if current_sequence:
+            all_video_tracks = current_sequence.videoTracks()
+        else:
+            all_video_tracks = []
 
         instances = []
-        for track_item in gui_tracks:
+        for video_track in all_video_tracks:
+            for track_item in video_track:
 
-            # get AYON tag data
-            tag_data = lib.get_trackitem_ayon_tag(track_item)
-            if not tag_data:
-                continue
+                # attempt to get AYON tag data
+                tag = lib.get_trackitem_ayon_tag(track_item)
+                if not tag:
+                    continue
 
-            instance = CreatedInstance.from_existing(tag_data, self)
-            instance.transient_data["track_item"] = track_item
-            self._add_instance_to_context(instance)
-
-            print("ZZ", tag_data)
+                tag_data = tags.get_tag_data(tag)
+                for creator_id, data in tag_data.get(_CONTENT_ID, {}).items():
+                    self._create_and_add_instance(
+                        data, creator_id, track_item, instances)
 
         return instances
 

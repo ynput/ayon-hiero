@@ -438,13 +438,18 @@ def get_track_ayon_data(track, container_name=None):
 
     # get tag metadata attribute
     tag_data = deepcopy(dict(tag.metadata()))
+    if tag_data.get("tag.json_metadata"):
+        tag_data = json.loads(tag_data["tag.json_metadata"])
 
     for obj_name, obj_data in tag_data.items():
         obj_name = obj_name.replace("tag.", "")
 
         if obj_name in ["applieswhole", "note", "label"]:
             continue
-        return_data[obj_name] = json.loads(obj_data)
+        if isinstance(obj_data, dict):
+            return_data[obj_name] = obj_data
+        else:
+            return_data[obj_name] = json.loads(obj_data)
 
     return (
         return_data[container_name]
@@ -549,6 +554,9 @@ def get_trackitem_ayon_data(track_item):
 
     # get tag metadata attribute
     tag_data = deepcopy(dict(tag.metadata()))
+    if tag_data.get("tag.json_metadata"):
+        return json.loads(tag_data.get("tag.json_metadata"))
+
     # convert tag metadata to normal keys names and values to correct types
     for k, v in tag_data.items():
         key = k.replace("tag.", "")
@@ -567,8 +575,7 @@ def get_trackitem_ayon_data(track_item):
                 value = v
             else:
                 value = ast.literal_eval(v)
-        except (ValueError, SyntaxError) as msg:
-            log.warning(msg)
+        except (ValueError, SyntaxError):
             value = v
 
         data[key] = value
@@ -609,8 +616,10 @@ def set_publish_attribute(tag, value):
         value (bool): True or False
     """
     tag_data = tag.metadata()
-    # set data to the publish attribute
-    tag_data.setValue("tag.publish", str(value))
+    tag_json_data = dict(tag_data).get("tag.json_metadata")
+    metadata = json.loads(tag_json_data)
+    metadata["publish"] = value
+    tag_data.setValue("tag.json_metadata", json.dumps(metadata))
 
 
 def get_publish_attribute(tag):
@@ -622,9 +631,7 @@ def get_publish_attribute(tag):
     """
     tag_data = tag.metadata()
     # get data to the publish attribute
-    value = tag_data.value("tag.publish")
-    # return value converted to bool value. Atring is stored in tag.
-    return ast.literal_eval(value)
+    return json.loads(tag_data.get("tag.json_metadata"))["publish"]
 
 
 def sync_avalon_data_to_workfile():
@@ -1283,8 +1290,8 @@ def sync_clip_name_to_data_asset(track_items_list):
             continue
 
         # fix data if wrong name
-        if data["asset"] != ti_name:
-            data["asset"] = ti_name
+        if data["asset_name"] != ti_name:
+            data["asset_name"] = ti_name
             # remove the original tag
             tag = get_trackitem_ayon_tag(track_item)
             track_item.removeTag(tag)

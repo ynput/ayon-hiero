@@ -32,7 +32,7 @@ class CreateWorkfile(AutoCreator):
         project_tag = tags.get_or_create_workfile_tag(create=True)
 
         tag_data = {
-            "metadata": {cls.identifier: json.dumps(data)},
+            "metadata": data,
             "note": "AYON workfile data"
         }
         tags.update_tag(project_tag, tag_data)
@@ -47,14 +47,7 @@ class CreateWorkfile(AutoCreator):
         if project_tag is None:
             return {}
 
-        metadata = project_tag.metadata()
-        try:
-            raw_data = dict(metadata)[f"tag.{cls.identifier}"]
-            instance_data = json.loads(raw_data)
-
-        except (KeyError, json.JSONDecodeError):  # missing or invalid data
-            instance_data = {}
-
+        instance_data = tags.get_tag_data(project_tag)
         return instance_data
 
     def _create_new_instance(self):
