@@ -9,13 +9,17 @@ import hiero
 from qtpy import QtWidgets, QtCore
 import qargparse
 
-from ayon_core.settings import get_current_project_settings
 from ayon_core.lib import Logger
-from ayon_core.pipeline import LoaderPlugin
+from ayon_core.pipeline import (
+    Creator,
+    HiddenCreator,
+    LoaderPlugin,
+)
 from ayon_core.pipeline.load import get_representation_path_from_context
+from ayon_core.settings import get_current_project_settings
+
 from . import lib
-from ayon_core.pipeline import Creator
-from ayon_core.lib import BoolDef
+
 
 log = Logger.get_logger(__name__)
 
@@ -596,11 +600,23 @@ class ClipLoader:
         return track_item
 
 
+class HiddenHieroCreator(HiddenCreator):
+    host_name = "hiero"
+    settings_category = "hiero"
+
+    def collect_instances(self):
+        pass
+
+    def update_instances(self, update_list):
+        pass
+
+    def remove_instances(self, instances):
+        pass
+
+
 class HieroCreator(Creator):
     """Creator class wrapper
     """
-    clip_color = "Purple"
-    rename_index = None
 
     def apply_settings(self, project_settings):
         hiero_create_settings = (
@@ -622,15 +638,6 @@ class HieroCreator(Creator):
             )
         else:
             self.selected = lib.get_track_items()
-
-        # TODO: Add a way to store/imprint data
-
-    def get_pre_create_attr_defs(self):
-        return [
-            BoolDef("use_selection",
-                    label="Use selection",
-                    default=True)
-        ]
 
 
 class PublishClip:
@@ -659,9 +666,9 @@ class PublishClip:
     rename_default = False
     hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
-    base_product_name_default = "<track_name>"
+    subset_name_default = "<track_name>"
     review_track_default = "< none >"
-    product_type_default = "plate"
+    subset_family_default = "plate"
     count_from_default = 10
     count_steps_default = 10
     vertical_sync_default = False
@@ -745,6 +752,13 @@ class PublishClip:
             self.tag_data["asset"] = self.ti_name
             self.tag_data["hierarchyData"]["shot"] = self.ti_name
 
+        # AYON unique identifier
+        folder_path = "/{}/{}".format(
+            self.tag_data["hierarchy"],
+            self.tag_data["asset"]
+        )
+        self.tag_data["folderPath"] = folder_path
+
         if self.tag_data["heroTrack"] and self.review_layer:
             self.tag_data.update({"reviewTrack": self.review_layer})
         else:
@@ -802,12 +816,12 @@ class PublishClip:
         }
 
         # build product name from layer name
-        if self.base_product_name == "<track_name>":
-            self.base_product_name = self.track_name
+        if self.subset_name == "<track_name>":
+            self.subset_name = self.track_name
 
         # create product for publishing
         self.product_name = (
-            self.product_type + self.base_product_name.capitalize()
+            self.subset_family + self.subset_name.capitalize()
         )
 
     def _replace_hash_to_expression(self, name, text):
@@ -895,7 +909,7 @@ class PublishClip:
                         hero_data["productName"] = self.product_name + str(
                             self.track_index)
                     # in case track name and product name is the same then add
-                    if self.base_product_name == self.track_name:
+                    if self.subset_name == self.track_name:
                         hero_data["productName"] = self.product_name
                     # assign data to return hierarchy data to tag
                     tag_hierarchy_data = hero_data
@@ -927,8 +941,9 @@ class PublishClip:
             "parents": self.parents,
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
-            "productType": self.product_type,
-            "families": [self.product_type, self.data["productType"]]
+            "productType": self.subset_family,
+# TODO: investigate
+#            "families": [self.subset_family, self.data["productType"]]
         }
 
     def _convert_to_entity(self, src_type, template):
@@ -941,7 +956,7 @@ class PublishClip:
         )
         formatting_data = {}
         for _k, _v in self.hierarchy_data.items():
-            value = _v["value"].format(
+            value = _v.format(
                 **self.track_item_default_data)
             formatting_data[_k] = value
 
@@ -960,6 +975,6 @@ class PublishClip:
         par_split = [(pattern.findall(t).pop(), t)
                      for t in self.hierarchy.split("/")]
 
-        for type, template in par_split:
-            parent = self._convert_to_entity(type, template)
+        for type_, template in par_split:
+            parent = self._convert_to_entity(type_, template)
             self.parents.append(parent)

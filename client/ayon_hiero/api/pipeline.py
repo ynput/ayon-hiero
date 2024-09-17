@@ -151,7 +151,7 @@ def containerise(track_item,
     """
 
     data_imprint = OrderedDict({
-        "schema": "openpype:container-2.0",
+        "schema": "ayon:container-2.0",
         "id": AVALON_CONTAINER_ID,
         "name": str(name),
         "namespace": str(namespace),
@@ -164,7 +164,7 @@ def containerise(track_item,
             data_imprint.update({k: v})
 
     log.debug("_ data_imprint: {}".format(data_imprint))
-    lib.set_trackitem_openpype_tag(track_item, data_imprint)
+    lib.set_trackitem_ayon_tag(track_item, data_imprint)
 
     return track_item
 
@@ -245,7 +245,7 @@ def parse_container(item, validate=True):
     # convert tag metadata to normal keys names
     if type(item) == hiero.core.VideoTrack:
         return_list = []
-        _data = lib.get_track_openpype_data(item)
+        _data = lib.get_track_ayon_data(item)
 
         if not _data:
             return
@@ -255,7 +255,7 @@ def parse_container(item, validate=True):
             return_list.append(container)
         return return_list
     else:
-        _data = lib.get_trackitem_openpype_data(item)
+        _data = lib.get_trackitem_ayon_data(item)
         return data_to_container(item, _data)
 
 
@@ -270,7 +270,7 @@ def _update_container_data(container, data):
 
 def update_container(item, data=None):
     """Update container data to input track_item or track's
-    openpype tag.
+    AYON tag.
 
     Args:
         item (hiero.core.TrackItem or hiero.core.VideoTrack):
@@ -290,8 +290,8 @@ def update_container(item, data=None):
         object_name = data["objectName"]
 
         # get all available containers
-        containers = lib.get_track_openpype_data(item)
-        container = lib.get_track_openpype_data(item, object_name)
+        containers = lib.get_track_ayon_data(item)
+        container = lib.get_track_ayon_data(item, object_name)
 
         containers = deepcopy(containers)
         container = deepcopy(container)
@@ -301,13 +301,13 @@ def update_container(item, data=None):
         # merge updated container back to containers
         containers.update({object_name: updated_container})
 
-        return bool(lib.set_track_openpype_tag(item, containers))
+        return bool(lib.set_track_ayon_tag(item, containers))
     else:
-        container = lib.get_trackitem_openpype_data(item)
+        container = lib.get_trackitem_ayon_data(item)
         updated_container = _update_container_data(container, data)
 
         log.info("Updating container: `{}`".format(item.name()))
-        return bool(lib.set_trackitem_openpype_tag(item, updated_container))
+        return bool(lib.set_trackitem_ayon_tag(item, updated_container))
 
 
 def launch_workfiles_app(*args):
@@ -384,11 +384,11 @@ def on_pyblish_instance_toggled(instance, old_value, new_value):
         instance, old_value, new_value))
 
     from ayon_hiero.api import (
-        get_trackitem_openpype_tag,
+        get_trackitem_ayon_tag,
         set_publish_attribute
     )
 
     # Whether instances should be passthrough based on new value
     track_item = instance.data["item"]
-    tag = get_trackitem_openpype_tag(track_item)
+    tag = get_trackitem_ayon_tag(track_item)
     set_publish_attribute(tag, new_value)

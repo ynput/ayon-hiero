@@ -8,7 +8,7 @@ import ayon_api
 
 from ayon_core.pipeline.create import CreatedInstance, AutoCreator
 
-from ayon_hiero.api import lib
+from ayon_hiero.api import lib, tags
 
 
 class CreateWorkfile(AutoCreator):
@@ -22,41 +22,6 @@ class CreateWorkfile(AutoCreator):
 
     default_variant = "Main"
 
-    AYON_DATA_TAG_BIN = "AyonData"
-    AYON_DATA_TAG_NAME = "workfile"
-
-    @classmethod
-    def _get_or_create_workfile_tag(cls, create=False):
-        """
-        Args:
-            create (bool): Create the project tag if missing.
-
-        Returns:
-            hiero.core.Tag: The workfile tag or None
-        """
-        current_project = lib.get_current_project()
-
-        # retrieve parent tag bin
-        project_tag_bin = current_project.tagsBin()
-        for tag_bin in project_tag_bin.bins():
-            if tag_bin.name() == cls.AYON_DATA_TAG_BIN:
-                break
-        else:
-            if create:
-                tag_bin = project_tag_bin.addItem(cls.AYON_DATA_TAG_BIN)
-            else:
-                return None
-
-        # retrieve tag
-        for item in tag_bin.items():
-            if (isinstance(item, hiero.core.Tag) and 
-                item.name() == cls.AYON_DATA_TAG_NAME):
-                return item
-
-        workfile_tag = hiero.core.Tag(cls.AYON_DATA_TAG_NAME)
-        tag_bin.addItem(workfile_tag)
-        return workfile_tag
-
     @classmethod
     def dump_instance_data(cls, data):
         """ Dump instance data into AyonData project tag.
@@ -64,12 +29,13 @@ class CreateWorkfile(AutoCreator):
         Args:
             data (dict): The data to push to the project tag.
         """
-        project_tag = cls._get_or_create_workfile_tag(create=True)
-        metadata = project_tag.metadata()
-        metadata.setValue(
-            cls.identifier,
-            json.dumps(data),
-        )
+        project_tag = tags.get_or_create_workfile_tag(create=True)
+
+        tag_data = {
+            "metadata": {cls.identifier: json.dumps(data)},
+            "note": "AYON workfile data"
+        }
+        tags.update_tag(project_tag, tag_data)
 
     def load_instance_data(cls):
         """ Returns the data stored in AyonData project tag if any.
@@ -77,13 +43,13 @@ class CreateWorkfile(AutoCreator):
         Returns:
             dict. The project data.
         """
-        project_tag = cls._get_or_create_workfile_tag()
+        project_tag = tags.get_or_create_workfile_tag()
         if project_tag is None:
             return {}
 
         metadata = project_tag.metadata()
         try:
-            raw_data = dict(metadata)[cls.identifier]
+            raw_data = dict(metadata)[f"tag.{cls.identifier}"]
             instance_data = json.loads(raw_data)
 
         except (KeyError, json.JSONDecodeError):  # missing or invalid data

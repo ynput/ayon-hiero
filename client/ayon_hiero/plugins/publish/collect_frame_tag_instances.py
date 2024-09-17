@@ -19,6 +19,7 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
     order = pyblish.api.CollectorOrder
     label = "Collect Frames"
     hosts = ["hiero"]
+    families = ["clip"]
 
     def process(self, context):
         self._context = context

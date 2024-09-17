@@ -2,7 +2,6 @@ import os
 import pyblish.api
 
 from ayon_core.pipeline import publish
-from openpype.hosts.hiero.api import lib
 
 import hiero
 import tempfile

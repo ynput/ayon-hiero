@@ -7,6 +7,9 @@ import ayon_api
 from ayon_core.lib import Logger
 from ayon_core.pipeline import get_current_project_name
 
+from . import constants
+
+
 log = Logger.get_logger(__name__)
 
 
@@ -99,8 +102,43 @@ def update_tag(tag, data):
         )
 
     # set note description of tag
-    tag.setNote(str(data["note"]))
+    if "note" in data:
+        tag.setNote(str(data["note"]))
+
     return tag
+
+
+def get_or_create_workfile_tag(create=False):
+    """
+    Args:
+        create (bool): Create the project tag if missing.
+
+    Returns:
+        hiero.core.Tag: The workfile tag or None
+    """
+    from .lib import get_current_project    
+    current_project = get_current_project()
+
+    # retrieve parent tag bin
+    project_tag_bin = current_project.tagsBin()
+    for tag_bin in project_tag_bin.bins():
+        if tag_bin.name() == constants.AYON_WORKFILE_TAG_BIN:
+            break
+    else:
+        if create:
+            tag_bin = project_tag_bin.addItem(constants.AYON_WORKFILE_TAG_BIN)
+        else:
+            return None
+
+    # retrieve tag
+    for item in tag_bin.items():
+        if (isinstance(item, hiero.core.Tag) and 
+            item.name() == constants.AYON_WORKFILE_TAG_NAME):
+            return item
+
+    workfile_tag = hiero.core.Tag(constants.AYON_WORKFILE_TAG_NAME)
+    tag_bin.addItem(workfile_tag)
+    return workfile_tag
 
 
 def add_tags_to_workfile():
