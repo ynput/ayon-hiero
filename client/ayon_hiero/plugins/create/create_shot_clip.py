@@ -1,10 +1,6 @@
 import copy
 
 from ayon_hiero.api import plugin, lib, tags
-# from ayon_core.hosts.hiero.api import plugin, lib
-# reload(lib)
-# reload(plugin)
-# reload(phiero)
 
 from ayon_core.pipeline.create import CreatorError, CreatedInstance
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef

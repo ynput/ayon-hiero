@@ -11,6 +11,9 @@ import hiero
 from pprint import pformat
 
 
+raise RuntimeError("Disabled - WIP")
+
+
 class PrecollectInstances(pyblish.api.ContextPlugin):
     """Collect all Track items selection."""
 
