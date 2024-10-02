@@ -536,7 +536,7 @@ OTIO file.
                 if creator_id == shot_creator_id:
                     track_item_duration = track_item.duration()
                     workfileFrameStart = \
-                        sub_instance_data["workfileFrameStart"]                 
+                        sub_instance_data["workfileFrameStart"]
                     sub_instance_data.update({
                         "creator_attributes": {
                             "workfileFrameStart": \

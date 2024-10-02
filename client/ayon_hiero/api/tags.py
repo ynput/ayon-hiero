@@ -126,7 +126,7 @@ def get_or_create_workfile_tag(create=False):
     Returns:
         hiero.core.Tag: The workfile tag or None
     """
-    from .lib import get_current_project 
+    from .lib import get_current_project
     current_project = get_current_project()
 
     # retrieve parent tag bin
