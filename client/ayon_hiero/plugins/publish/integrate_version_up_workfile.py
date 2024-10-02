@@ -2,6 +2,8 @@ from pyblish import api
 
 from ayon_core.lib import version_up
 
+raise RuntimeError("Disabled - WIP")
+
 
 class IntegrateVersionUpWorkfile(api.ContextPlugin):
     """Save as new workfile version"""

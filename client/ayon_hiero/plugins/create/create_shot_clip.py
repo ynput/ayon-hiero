@@ -167,14 +167,7 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
     label = "Editorial Shot"
 
     def get_instance_attr_defs(self):
-        instance_attributes = [
-            TextDef(
-                "folderPath",
-                label="Folder path",
-                disabled=True,
-            ),
-        ]
-        instance_attributes.extend(CLIP_ATTR_DEFS)
+        instance_attributes = CLIP_ATTR_DEFS
         return instance_attributes
 
 class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
@@ -458,10 +451,20 @@ OTIO file.
             return
 
         self.log.info(self.selected)
-
         self.log.debug(f"Selected: {self.selected}")
 
+        audio_clips = []
+        for audio_track in self.sequence.audioTracks():
+            audio_clips.extend(audio_track.items())
+
+        if not audio_clips and pre_create_data.get("export_audio"):
+            raise CreatorError(
+                "You must have audio in your active "
+                "timeline in order to export audio."
+            )
+
         instance_data["clip_variant"] = pre_create_data["clip_variant"]
+        instance_data["task"] = None
 
         # sort selected trackItems by
         sorted_selected_track_items = list()
@@ -536,7 +539,6 @@ OTIO file.
                         sub_instance_data["workfileFrameStart"]                    
                     sub_instance_data.update({
                         "creator_attributes": {
-                            "folderPath": shot_folder_path,
                             "workfileFrameStart": \
                                 sub_instance_data["workfileFrameStart"],
                             "handleStart": sub_instance_data["handleStart"],
@@ -548,8 +550,7 @@ OTIO file.
                             "clipOut": track_item.timelineOut(),
                             "clipDuration": track_item_duration,
                             "sourceIn": track_item.sourceIn(), 
-                            "sourceOut": (track_item.sourceOut() + 
-                                track_item_duration),                 
+                            "sourceOut": track_item.sourceOut(),                 
                         },
                         "label": (
                             f"{shot_folder_path} shot"

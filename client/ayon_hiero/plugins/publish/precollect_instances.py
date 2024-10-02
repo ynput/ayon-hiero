@@ -43,9 +43,9 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 selected_timeline_items))
 
         # add all tracks subtreck effect items to context
-        all_tracks = hiero.ui.activeSequence().videoTracks()
-        tracks_effect_items = self.collect_sub_track_items(all_tracks)
-        context.data["tracksEffectItems"] = tracks_effect_items
+#        all_tracks = hiero.ui.activeSequence().videoTracks()
+#        tracks_effect_items = self.collect_sub_track_items(all_tracks)
+#        context.data["tracksEffectItems"] = tracks_effect_items
 
         # process all selected timeline track items
         for track_item in selected_timeline_items:
@@ -67,16 +67,16 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 continue
 
             # get clips subtracks and annotations
-            annotations = self.clip_annotations(source_clip)
-            subtracks = self.clip_subtrack(track_item)
-            self.log.debug("Annotations: {}".format(annotations))
-            self.log.debug(">> Subtracks: {}".format(subtracks))
+#            annotations = self.clip_annotations(source_clip)
+#            subtracks = self.clip_subtrack(track_item)
+#            self.log.debug("Annotations: {}".format(annotations))
+#            self.log.debug(">> Subtracks: {}".format(subtracks))
 
             # solve handles length
-            tag_data["handleStart"] = min(
-                tag_data["handleStart"], int(track_item.handleInLength()))
-            tag_data["handleEnd"] = min(
-                tag_data["handleEnd"], int(track_item.handleOutLength()))
+ #           tag_data["handleStart"] = min(
+ #               tag_data["handleStart"], int(track_item.handleInLength()))
+ #           tag_data["handleEnd"] = min(
+ #               tag_data["handleEnd"], int(track_item.handleOutLength()))
 
             # add audio to families
             with_audio = False
@@ -126,28 +126,28 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 label += " ({})".format(clip_name)
             label += " {}".format(product_name)
 
-            data.update({
-                "name": "{}_{}".format(folder_path, product_name),
-                "label": label,
-                "productName": product_name,
-                "productType": product_type,
-                "folderPath": folder_path,
-                "asset_name": folder_name,
-                "item": track_item,
-                "families": families,
-                "publish": tag_data["publish"],
-                "fps": context.data["fps"],
+#            data.update({
+#                "name": "{}_{}".format(folder_path, product_name),
+#                "label": label,
+#                "productName": product_name,
+#                "productType": product_type,
+#                "folderPath": folder_path,
+#                "asset_name": folder_name,
+#                "item": track_item,
+#                "families": families,
+#                "publish": tag_data["publish"],
+#                "fps": context.data["fps"],
 
                 # clip's effect
-                "clipEffectItems": subtracks,
-                "clipAnnotations": annotations,
+#                "clipEffectItems": subtracks,
+#                "clipAnnotations": annotations,
 
                 # add all additional tags
-                "tags": phiero.get_track_item_tags(track_item),
-                "newHierarchyIntegration": True,
+ #               "tags": phiero.get_track_item_tags(track_item),
+ #               "newHierarchyIntegration": True,
                 # Backwards compatible (Deprecated since 24/06/06)
-                "newAssetPublishing": True,
-            })
+ #               "newAssetPublishing": True,
+#            })
 
             # otio clip data
             otio_data = self.get_otio_clip_instance_data(track_item) or {}
@@ -161,12 +161,12 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             # create instance
             instance = context.create_instance(**data)
 
-            # add colorspace data
-            instance.data.update({
-                "versionData": {
-                    "colorspace": track_item.sourceMediaColourTransform(),
-                }
-            })
+#            # add colorspace data
+#            instance.data.update({
+#                "versionData": {
+#                    "colorspace": track_item.sourceMediaColourTransform(),
+#                }
+#            })
 
             # create shot instance for shot attributes create/update
             self.create_shot_instance(context, **data)
@@ -186,69 +186,69 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             if tag_data.get("reviewTrack") is not None:
                 instance.data["reviewAudio"] = True
 
-    def get_resolution_to_data(self, data, context):
-        assert data.get("otioClip"), "Missing `otioClip` data"
+#    def get_resolution_to_data(self, data, context):
+#        assert data.get("otioClip"), "Missing `otioClip` data"
+#
+#        # solve source resolution option
+#        if data.get("sourceResolution", None):
+#            otio_clip_metadata = data[
+#                "otioClip"].media_reference.metadata
+#            data.update({
+#                "resolutionWidth": otio_clip_metadata[
+#                        "openpype.source.width"],
+#                "resolutionHeight": otio_clip_metadata[
+#                    "openpype.source.height"],
+#                "pixelAspect": otio_clip_metadata[
+#                    "openpype.source.pixelAspect"]
+#            })
+#        else:
+#            otio_tl_metadata = context.data["otioTimeline"].metadata
+#            data.update({
+#                "resolutionWidth": otio_tl_metadata["openpype.timeline.width"],
+#                "resolutionHeight": otio_tl_metadata[
+#                    "openpype.timeline.height"],
+#                "pixelAspect": otio_tl_metadata[
+#                    "openpype.timeline.pixelAspect"]
+#            })
 
-        # solve source resolution option
-        if data.get("sourceResolution", None):
-            otio_clip_metadata = data[
-                "otioClip"].media_reference.metadata
-            data.update({
-                "resolutionWidth": otio_clip_metadata[
-                        "openpype.source.width"],
-                "resolutionHeight": otio_clip_metadata[
-                    "openpype.source.height"],
-                "pixelAspect": otio_clip_metadata[
-                    "openpype.source.pixelAspect"]
-            })
-        else:
-            otio_tl_metadata = context.data["otioTimeline"].metadata
-            data.update({
-                "resolutionWidth": otio_tl_metadata["openpype.timeline.width"],
-                "resolutionHeight": otio_tl_metadata[
-                    "openpype.timeline.height"],
-                "pixelAspect": otio_tl_metadata[
-                    "openpype.timeline.pixelAspect"]
-            })
-
-    def create_shot_instance(self, context, **data):
-        product_name = "shotMain"
-        master_layer = data.get("heroTrack")
-        hierarchy_data = data.get("hierarchyData")
-        item = data.get("item")
-        clip_name = item.name()
-
-        if not master_layer:
-            return
-
-        if not hierarchy_data:
-            return
-
-        folder_path = data["folderPath"]
-        folder_name = data["asset_name"]
-
-        product_type = "shot"
-
-        # form label
-        label = "{} -".format(folder_path)
-        if folder_name != clip_name:
-            label += " ({}) ".format(clip_name)
-        label += " {}".format(product_name)
-
-        data.update({
-            "name": "{}_{}".format(folder_path, product_name),
-            "label": label,
-            "productName": product_name,
-            "productType": product_type,
-            "family": product_type,
-            "families": [product_type],
-            "integrate": False,
-        })
-
-        instance = context.create_instance(**data)
-        self.log.info("Creating instance: {}".format(instance))
-        self.log.debug(
-            "_ instance.data: {}".format(pformat(instance.data)))
+#    def create_shot_instance(self, context, **data):
+#        product_name = "shotMain"
+#        master_layer = data.get("heroTrack")
+#        hierarchy_data = data.get("hierarchyData")
+#        item = data.get("item")
+#        clip_name = item.name()
+#
+#        if not master_layer:
+#            return
+#
+#        if not hierarchy_data:
+#            return
+#
+#        folder_path = data["folderPath"]
+#        folder_name = data["asset_name"]
+#
+#        product_type = "shot"
+#
+#        # form label
+#        label = "{} -".format(folder_path)
+#        if folder_name != clip_name:
+#            label += " ({}) ".format(clip_name)
+#        label += " {}".format(product_name)
+#
+#        data.update({
+#            "name": "{}_{}".format(folder_path, product_name),
+#            "label": label,
+#            "productName": product_name,
+#            "productType": product_type,
+#            "family": product_type,
+#            "families": [product_type],
+#            "integrate": False,
+#        })
+#
+#        instance = context.create_instance(**data)
+#        self.log.info("Creating instance: {}".format(instance))
+#        self.log.debug(
+#            "_ instance.data: {}".format(pformat(instance.data)))
 
     def _get_folder_data(self, data):
         folder_path = data.pop("folderPath", None)
@@ -333,7 +333,7 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                     parent_range, timeline_range, strict=False):
                 return True
 
-    def get_otio_clip_instance_data(self, track_item):
+#    def get_otio_clip_instance_data(self, track_item):
         """
         Return otio objects for timeline, track and clip
 
@@ -346,110 +346,110 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             dict: otio clip object
 
         """
-        ti_track_name = track_item.parent().name()
-        timeline_range = self.create_otio_time_range_from_timeline_item_data(
-            track_item)
-        for otio_clip in self.otio_timeline.each_clip():
-            track_name = otio_clip.parent().name
-            parent_range = otio_clip.range_in_parent()
-            if ti_track_name != track_name:
-                continue
-            if otio_clip.name != track_item.name():
-                continue
-            self.log.debug("__ parent_range: {}".format(parent_range))
-            self.log.debug("__ timeline_range: {}".format(timeline_range))
-            if is_overlapping_otio_ranges(
-                    parent_range, timeline_range, strict=True):
-
-                # add pypedata marker to otio_clip metadata
-                for marker in otio_clip.markers:
-                    if phiero.OPENPYPE_TAG_NAME in marker.name:
-                        otio_clip.metadata.update(marker.metadata)
-                return {"otioClip": otio_clip}
-
-        return None
-
-    @staticmethod
-    def create_otio_time_range_from_timeline_item_data(track_item):
-        timeline = phiero.get_current_sequence()
-        frame_start = int(track_item.timelineIn())
-        frame_duration = int(track_item.duration())
-        fps = timeline.framerate().toFloat()
-
-        return hiero_export.create_otio_time_range(
-            frame_start, frame_duration, fps)
-
-    def collect_sub_track_items(self, tracks):
-        """
-        Returns dictionary with track index as key and list of subtracks
-        """
-        # collect all subtrack items
-        sub_track_items = {}
-        for track in tracks:
-            effect_items = track.subTrackItems()
-
-            # skip if no clips on track > need track with effect only
-            if not effect_items:
-                continue
-
-            # skip all disabled tracks
-            if not track.isEnabled():
-                continue
-
-            track_index = track.trackIndex()
-            _sub_track_items = phiero.flatten(effect_items)
-
-            _sub_track_items = list(_sub_track_items)
-            # continue only if any subtrack items are collected
-            if not _sub_track_items:
-                continue
-
-            enabled_sti = []
-            # loop all found subtrack items and check if they are enabled
-            for _sti in _sub_track_items:
-                # checking if not enabled
-                if not _sti.isEnabled():
-                    continue
-                if isinstance(_sti, hiero.core.Annotation):
-                    continue
-                # collect the subtrack item
-                enabled_sti.append(_sti)
-
-            # continue only if any subtrack items are collected
-            if not enabled_sti:
-                continue
-
-            # add collection of subtrackitems to dict
-            sub_track_items[track_index] = enabled_sti
-
-        return sub_track_items
+#        ti_track_name = track_item.parent().name()
+#        timeline_range = self.create_otio_time_range_from_timeline_item_data(
+#            track_item)
+#        for otio_clip in self.otio_timeline.each_clip():
+#            track_name = otio_clip.parent().name
+#            parent_range = otio_clip.range_in_parent()
+#            if ti_track_name != track_name:
+#                continue
+#            if otio_clip.name != track_item.name():
+#                continue
+#            self.log.debug("__ parent_range: {}".format(parent_range))
+#            self.log.debug("__ timeline_range: {}".format(timeline_range))
+#            if is_overlapping_otio_ranges(
+#                    parent_range, timeline_range, strict=True):
+#
+#                # add pypedata marker to otio_clip metadata
+#                for marker in otio_clip.markers:
+#                    if phiero.OPENPYPE_TAG_NAME in marker.name:
+#                        otio_clip.metadata.update(marker.metadata)
+#                return {"otioClip": otio_clip}
+#
+#        return None
 
     @staticmethod
-    def clip_annotations(clip):
-        """
-        Returns list of Clip's hiero.core.Annotation
-        """
-        annotations = []
-        subTrackItems = phiero.flatten(clip.subTrackItems())
-        annotations += [item for item in subTrackItems if isinstance(
-            item, hiero.core.Annotation)]
-        return annotations
+#    def create_otio_time_range_from_timeline_item_data(track_item):
+#        timeline = phiero.get_current_sequence()
+#        frame_start = int(track_item.timelineIn())
+#        frame_duration = int(track_item.duration())
+#        fps = timeline.framerate().toFloat()
 
-    @staticmethod
-    def clip_subtrack(clip):
-        """
-        Returns list of Clip's hiero.core.SubTrackItem
-        """
-        subtracks = []
-        subTrackItems = phiero.flatten(clip.parent().subTrackItems())
-        for item in subTrackItems:
-            if "TimeWarp" in item.name():
-                continue
-            # avoid all annotation
-            if isinstance(item, hiero.core.Annotation):
-                continue
-            # avoid all disabled
-            if not item.isEnabled():
-                continue
-            subtracks.append(item)
-        return subtracks
+#        return hiero_export.create_otio_time_range(
+#            frame_start, frame_duration, fps)
+
+#    def collect_sub_track_items(self, tracks):
+#        """
+#        Returns dictionary with track index as key and list of subtracks
+#        """
+#        # collect all subtrack items
+#        sub_track_items = {}
+#        for track in tracks:
+#            effect_items = track.subTrackItems()
+#
+#            # skip if no clips on track > need track with effect only
+#            if not effect_items:
+#                continue
+#
+#            # skip all disabled tracks
+#            if not track.isEnabled():
+#                continue
+#
+#            track_index = track.trackIndex()
+#            _sub_track_items = phiero.flatten(effect_items)
+#
+#            _sub_track_items = list(_sub_track_items)
+#            # continue only if any subtrack items are collected
+#            if not _sub_track_items:
+#                continue
+#
+#            enabled_sti = []
+#            # loop all found subtrack items and check if they are enabled
+#            for _sti in _sub_track_items:
+#                # checking if not enabled
+#                if not _sti.isEnabled():
+#                    continue
+#                if isinstance(_sti, hiero.core.Annotation):
+#                    continue
+#                # collect the subtrack item
+#                enabled_sti.append(_sti)
+#
+#            # continue only if any subtrack items are collected
+#            if not enabled_sti:
+#                continue
+#
+#            # add collection of subtrackitems to dict
+#            sub_track_items[track_index] = enabled_sti
+#
+#        return sub_track_items
+
+#    @staticmethod
+#    def clip_annotations(clip):
+#        """
+#        Returns list of Clip's hiero.core.Annotation
+#        """
+#        annotations = []
+#        subTrackItems = phiero.flatten(clip.subTrackItems())
+#        annotations += [item for item in subTrackItems if isinstance(
+#            item, hiero.core.Annotation)]
+#        return annotations
+#
+#    @staticmethod
+#    def clip_subtrack(clip):
+#        """
+#        Returns list of Clip's hiero.core.SubTrackItem
+#        """
+#        subtracks = []
+#        subTrackItems = phiero.flatten(clip.parent().subTrackItems())
+#        for item in subTrackItems:
+#            if "TimeWarp" in item.name():
+#                continue
+#            # avoid all annotation
+#            if isinstance(item, hiero.core.Annotation):
+#                continue
+#            # avoid all disabled
+#            if not item.isEnabled():
+#                continue
+#            subtracks.append(item)
+#        return subtracks
