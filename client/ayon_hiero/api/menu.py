@@ -54,7 +54,7 @@ def menu_install():
     """
 
     from . import (
-        publish, launch_workfiles_app, reload_config,
+        launch_workfiles_app, reload_config,
         apply_colorspace_project, apply_colorspace_clips
     )
     from .lib import get_main_window

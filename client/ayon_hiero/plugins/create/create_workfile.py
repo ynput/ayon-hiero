@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 """Creator plugin for creating workfiles."""
-import json
-
-import hiero.core
-
 import ayon_api
 
 from ayon_core.pipeline.create import CreatedInstance, AutoCreator
 
-from ayon_hiero.api import lib, tags
+from ayon_hiero.api import tags
 
 
 class CreateWorkfile(AutoCreator):
@@ -122,7 +118,7 @@ class CreateWorkfile(AutoCreator):
         Args:
             update_list(List[UpdateData]): Gets list of tuples. Each item
                 contain changed instance and its changes.
-        """        
+        """
         for created_inst, _ in update_list:
             data = created_inst.data_to_store()
             self.dump_instance_data(data)

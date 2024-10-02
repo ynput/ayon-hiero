@@ -1,5 +1,3 @@
-import os
-
 import pyblish.api
 
 import hiero
@@ -11,7 +9,7 @@ class CollectWorkfile(pyblish.api.InstancePlugin):
     label = "Collect Workfile"
     families = ["workfile"]
     hosts = ["hiero"]
-    order = pyblish.api.CollectorOrder - 0.49    
+    order = pyblish.api.CollectorOrder - 0.49
 
     def process(self, instance):
 

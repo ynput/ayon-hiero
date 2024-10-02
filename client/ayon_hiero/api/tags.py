@@ -90,7 +90,7 @@ def update_tag(tag, data):
     data_mtd = data.get("metadata", {})
 
     mtd.setValue(
-        f"tag.json_metadata",
+        "tag.json_metadata",
         json.dumps(data_mtd)
     )
     # set note description of tag
@@ -126,7 +126,7 @@ def get_or_create_workfile_tag(create=False):
     Returns:
         hiero.core.Tag: The workfile tag or None
     """
-    from .lib import get_current_project    
+    from .lib import get_current_project 
     current_project = get_current_project()
 
     # retrieve parent tag bin
@@ -142,8 +142,8 @@ def get_or_create_workfile_tag(create=False):
 
     # retrieve tag
     for item in tag_bin.items():
-        if (isinstance(item, hiero.core.Tag) and 
-            item.name() == constants.AYON_WORKFILE_TAG_NAME):
+        if (isinstance(item, hiero.core.Tag)
+            and item.name() == constants.AYON_WORKFILE_TAG_NAME):
             return item
 
     workfile_tag = hiero.core.Tag(constants.AYON_WORKFILE_TAG_NAME)

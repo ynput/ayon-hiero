@@ -3,7 +3,6 @@
 
 import os
 import re
-import ast
 import opentimelineio as otio
 from . import utils
 import hiero.core

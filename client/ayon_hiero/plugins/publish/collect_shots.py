@@ -4,6 +4,8 @@ import pyblish
 from ayon_hiero.api import lib
 from ayon_hiero.api.otio import utils
 
+import hiero
+
 
 class CollectShot(pyblish.api.InstancePlugin):
     """Collect new shots."""
