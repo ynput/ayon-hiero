@@ -79,8 +79,7 @@ class HieroHost(
         return ls()
 
     def install(self):
-        ''' Installing all requarements for hiero host
-        '''
+        """Installing all requirements for hiero host"""
 
         # adding all events
         events.register_events()
@@ -151,7 +150,7 @@ def containerise(track_item,
     """
 
     data_imprint = OrderedDict({
-        "schema": "ayon:container-2.0",
+        "schema": "ayon:container-3.0",
         "id": AVALON_CONTAINER_ID,
         "name": str(name),
         "namespace": str(namespace),

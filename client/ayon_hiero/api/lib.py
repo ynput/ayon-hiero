@@ -331,7 +331,7 @@ def _validate_all_atrributes(
 
 def get_track_item_tags(track_item):
     """
-    Get track item tags excluded AYON tag
+    Get track item tags excluding AYON tag
 
     Attributes:
         trackItem (hiero.core.TrackItem): hiero object
@@ -361,7 +361,7 @@ def _get_tag_unique_hash():
 
 def set_track_ayon_tag(track, data=None):
     """
-    Set ayon track tag to input track object.
+    Set AYON track tag to input track object.
 
     Attributes:
         track (hiero.core.VideoTrack): hiero object
@@ -441,10 +441,11 @@ def get_track_ayon_data(track, container_name=None):
     if tag_data.get("tag.json_metadata"):
         tag_data = json.loads(tag_data["tag.json_metadata"])
 
+    ignore_names  = {"applieswhole", "note", "label"}
     for obj_name, obj_data in tag_data.items():
         obj_name = obj_name.replace("tag.", "")
 
-        if obj_name in ["applieswhole", "note", "label"]:
+        if obj_name in ignore_names:
             continue
         if isinstance(obj_data, dict):
             return_data[obj_name] = obj_data
@@ -498,7 +499,7 @@ def get_trackitem_ayon_tag(track_item):
 
 def set_trackitem_ayon_tag(track_item, data=None):
     """
-    Set ayon track tag to input track object.
+    Set AYON track tag to input track object.
 
     Attributes:
         track (hiero.core.VideoTrack): hiero object
@@ -537,7 +538,7 @@ def set_trackitem_ayon_tag(track_item, data=None):
 
 def get_trackitem_ayon_data(track_item):
     """
-    Get track item's pype tag data.
+    Get track item's AYON tag data.
 
     Attributes:
         trackItem (hiero.core.TrackItem): hiero object
