@@ -36,7 +36,6 @@ from .workio import (
     save_file,
     file_extensions,
     has_unsaved_changes,
-    work_root,
     current_file
 )
 
