@@ -111,6 +111,6 @@ def get_marker_from_clip_index(otio_timeline, clip_index):
 
             else:
                 if metadata.get("clip_index") == clip_index:
-                    return  otio_clip, marker
+                    return otio_clip, marker
 
     return None, None
