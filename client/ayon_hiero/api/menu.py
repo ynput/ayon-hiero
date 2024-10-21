@@ -98,13 +98,13 @@ def menu_install():
     creator_action = menu.addAction("Create...")
     creator_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
     creator_action.triggered.connect(
-        lambda: host_tools.show_publisher(tab="create")
+        lambda: host_tools.show_publisher(tab="create", parent=main_window)
     )
 
     publish_action = menu.addAction("Publish...")
     publish_action.setIcon(QtGui.QIcon("icons:Output.png"))
     publish_action.triggered.connect(
-        lambda *args: host_tools.show_publisher(tab="publish")
+        lambda *args: host_tools.show_publisher(tab="publish", parent=main_window)
     )
 
     loader_action = menu.addAction("Load...")

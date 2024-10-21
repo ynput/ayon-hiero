@@ -63,9 +63,6 @@ class HieroHost(
     def save_workfile(self, filepath=None):
         return save_file(filepath)
 
-    def work_root(self, session):
-        return work_root(session)
-
     def get_current_workfile(self):
         return current_file()
 
@@ -111,9 +108,6 @@ class HieroHost(
         pyblish.deregister_plugin_path(PUBLISH_PATH)
         deregister_loader_plugin_path(LOAD_PATH)
         deregister_creator_plugin_path(CREATE_PATH)
-
-        # register callback for switching publishable
-        pyblish.deregister_callback("instanceToggled", on_pyblish_instance_toggled)
 
     def get_context_data(self):
         # root_node = nuke.root()
