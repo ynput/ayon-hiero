@@ -617,8 +617,13 @@ def set_publish_attribute(tag, value):
         value (bool): True or False
     """
     tag_data = tag.metadata()
-    tag_json_data = dict(tag_data).get("tag.json_metadata")
-    metadata = json.loads(tag_json_data)
+    try:
+        tag_json_data = tag_data["tag.json_metadata"]
+        metadata = json.loads(tag_json_data)
+
+    except (KeyError, json.JSONDecodeError):  # missing key or invalid tag data
+        metadata = {}
+
     metadata["publish"] = value
     tag_data.setValue("tag.json_metadata", json.dumps(metadata))
 
@@ -628,11 +633,21 @@ def get_publish_attribute(tag):
 
     Attribute:
         tag (hiero.core.Tag): a tag object
-        value (bool): True or False
+
+    Returns:
+        object: data found on publish attribute or None
     """
     tag_data = tag.metadata()
+
     # get data to the publish attribute
-    return json.loads(tag_data.get("tag.json_metadata"))["publish"]
+    try:
+        tag_json_data = tag_data["tag.json_metadata"]
+        tag_data = json.loads(tag_json_data)
+
+    except (KeyError, json.JSONDecodeError):  # missing key or invalid tag data
+        return None    
+
+    return tag_data["publish"]
 
 
 def sync_avalon_data_to_workfile():

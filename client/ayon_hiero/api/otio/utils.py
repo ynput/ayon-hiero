@@ -104,12 +104,11 @@ def get_marker_from_clip_index(otio_timeline, clip_index):
 
             try:
                 json_metadata = marker.metadata["json_metadata"]
-                metadata = json.loads(json_metadata)
-
             except KeyError:
                 continue
 
             else:
+                metadata = json.loads(json_metadata)
                 if metadata.get("clip_index") == clip_index:
                     return otio_clip, marker
 
