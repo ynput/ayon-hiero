@@ -645,7 +645,7 @@ def get_publish_attribute(tag):
         tag_data = json.loads(tag_json_data)
 
     except (KeyError, json.JSONDecodeError):  # missing key or invalid tag data
-        return None    
+        return None
 
     return tag_data["publish"]
 
