@@ -109,13 +109,11 @@ class HieroHost(
         deregister_creator_plugin_path(CREATE_PATH)
 
     def get_context_data(self):
-        # root_node = nuke.root()
-        # return get_node_data(root_node, ROOT_DATA_KNOB)
-        pass
+        # TODO: implement to support persisting context attributes
+        return {}
 
     def update_context_data(self, data, changes):
-        # root_node = nuke.root()
-        # set_node_data(root_node, ROOT_DATA_KNOB, data)
+        # TODO: implement to support persisting context attributes
         pass
 
 
