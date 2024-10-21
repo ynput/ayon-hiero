@@ -170,6 +170,7 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
         instance_attributes = CLIP_ATTR_DEFS
         return instance_attributes
 
+
 class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
     """ Base clip product creator.
     """
@@ -450,7 +451,6 @@ OTIO file.
         if len(self.selected) < 1:
             return
 
-        self.log.info(self.selected)
         self.log.debug(f"Selected: {self.selected}")
 
         audio_clips = []
