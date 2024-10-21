@@ -3,11 +3,10 @@ import pyblish.api
 import hiero
 
 
-class CollectWorkfile(pyblish.api.InstancePlugin):
+class CollectWorkfile(pyblish.api.ContextPlugin):
     """Collect the current working file into context"""
 
     label = "Collect Workfile"
-    families = ["workfile"]
     hosts = ["hiero"]
     order = pyblish.api.CollectorOrder - 0.49
 
@@ -18,4 +17,4 @@ class CollectWorkfile(pyblish.api.InstancePlugin):
 
         current_file = project.path()
 
-        instance.context.data["currentFile"] = current_file
+        instance.data["currentFile"] = current_file

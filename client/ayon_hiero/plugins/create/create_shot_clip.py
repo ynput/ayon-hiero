@@ -450,8 +450,7 @@ OTIO file.
         if len(self.selected) < 1:
             return
 
-        self.log.info(self.selected)
-        self.log.debug(f"Selected: {self.selected}")
+        self.log.info(f"Selected: {self.selected}")
 
         audio_clips = []
         for audio_track in self.sequence.audioTracks():
