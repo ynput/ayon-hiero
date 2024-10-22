@@ -1,6 +1,7 @@
 import copy
+import json
 
-from ayon_hiero.api import plugin, lib, tags
+from ayon_hiero.api import constants, plugin, lib, tags
 
 from ayon_core.pipeline.create import CreatorError, CreatedInstance
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
@@ -609,6 +610,130 @@ OTIO file.
         instances.append(instance)
         return instance
 
+    def _collect_legacy_instance(self, track_item):
+        """Collect a legacy instance from previous creator if any.#
+
+        Args:
+            track_item (obj): The Hiero track_item to inspect.
+        """
+        tag = lib.get_trackitem_ayon_tag(
+            track_item,
+            tag_name=constants.LEGACY_OPENPYPE_TAG_NAME,
+        )
+        if not tag:
+            return
+
+        data = tag.metadata()
+
+        clip_instances = {}
+        instance_data = {
+            "clip_index": track_item.guid(),
+            "task": None,
+        }
+        required_key_mapping = {
+            "tag.audio": ("extract_audio", bool),
+            "tag.heroTrack": ("heroTrack", bool),
+            "tag.handleStart": ("handleStart", int),
+            "tag.handleEnd": ("handleEnd", int),
+            "tag.folderPath": ("folderPath", str),
+            "tag.reviewTrack": ("reviewTrack", str),
+            "tag.variant": ("variant", str),
+            "tag.workfileFrameStart": ("workfileFrameStart", int),
+            "tag.sourceResolution": ("sourceResolution", bool),
+            "tag.hierarchy": ("hierarchy", str),
+            "tag.hierarchyData": ("hierarchyData", json),
+            "tag.asset_name": ("asset", str),
+            "tag.active": ("active", bool),
+            "tag.productName": ("productName", str),
+            "tag.parents": ("parents", json),
+        }
+
+        try:
+            for key, value in required_key_mapping.items():
+                instance_key, type_cast = value
+                if type_cast is bool:
+                    instance_data[instance_key] = data[key] == "True"
+                elif type_cast is json:
+                    conformed_data = data[key].replace("'", "\"")
+                    instance_data[instance_key] = json.loads(conformed_data)
+                else:
+                    instance_data[instance_key] = type_cast(data[key])
+
+        except RuntimeError as error:
+            self.log.warning(
+                "Cannot retrieve instance from legacy "
+                f"tag data: {error}."
+            )
+
+        # Create parent shot instance.
+        sub_instance_data = instance_data.copy()
+        track_item_duration = track_item.duration()
+        workfileFrameStart = \
+            sub_instance_data["workfileFrameStart"]
+        sub_instance_data.update({
+            "label": f"{sub_instance_data['folderPath']} shot",
+            "creator_attributes": {
+                "workfileFrameStart": workfileFrameStart,
+                "handleStart": sub_instance_data["handleStart"],
+                "handleEnd": sub_instance_data["handleEnd"],
+                "frameStart": workfileFrameStart,
+                "frameEnd": (workfileFrameStart +
+                    track_item_duration),
+                "clipIn": track_item.timelineIn(),
+                "clipOut": track_item.timelineOut(),
+                "clipDuration": track_item_duration,
+                "sourceIn": track_item.sourceIn(),
+                "sourceOut": track_item.sourceOut(),                
+            }
+        })
+
+        shot_creator_id = "io.ayon.creators.hiero.shot"
+        creator = self.create_context.creators[shot_creator_id]
+        instance = creator.create(sub_instance_data, None)
+        instance.transient_data["track_item"] = track_item
+        self._add_instance_to_context(instance)
+        clip_instances[shot_creator_id] = instance.data_to_store()
+        parenting_data = instance
+
+        # Create plate/audio instance
+        if instance_data["extract_audio"]:
+            sub_creators = (
+                "io.ayon.creators.hiero.plate",
+                "io.ayon.creators.hiero.audio"
+            )
+        else:
+            sub_creators = ("io.ayon.creators.hiero.plate",)
+
+        for sub_creator_id in sub_creators:
+            sub_instance_data = instance_data.copy()
+            creator = self.create_context.creators[sub_creator_id]
+            sub_instance_data.update({
+                "clip_variant": sub_instance_data["variant"],
+                "parent_instance_id": parenting_data["instance_id"],
+                "label": (
+                    f"{sub_instance_data['folderPath']} "
+                    f"{creator.product_type}"
+                ),
+                "creator_attributes": {
+                    "parentInstance": parenting_data["label"],
+                }
+            })
+
+            instance = creator.create(sub_instance_data, None)
+            instance.transient_data["track_item"] = track_item
+            self._add_instance_to_context(instance)
+            clip_instances[sub_creator_id] = instance.data_to_store()            
+
+        # Adjust clip tag to match new publisher
+        track_item.removeTag(tag)
+        lib.imprint(
+            track_item,
+            data={
+                _CONTENT_ID: clip_instances,
+                "clip_index": track_item.guid(),
+            }
+        )
+
     def collect_instances(self):
         """Collect all created instances from current timeline."""
         current_sequence = lib.get_current_sequence()
@@ -624,6 +749,7 @@ OTIO file.
                 # attempt to get AYON tag data
                 tag = lib.get_trackitem_ayon_tag(track_item)
                 if not tag:
+                    self._collect_legacy_instance(track_item)
                     continue
 
                 tag_data = tags.get_tag_data(tag)

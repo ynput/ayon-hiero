@@ -477,12 +477,13 @@ def get_track_item_pype_data(track_item):
     return get_trackitem_ayon_data(track_item)
 
 
-def get_trackitem_ayon_tag(track_item):
+def get_trackitem_ayon_tag(track_item, tag_name=AYON_TAG_NAME):
     """
     Get pype track item tag created by creator or loader plugin.
 
     Attributes:
         trackItem (hiero.core.TrackItem): hiero object
+        tag_name (str): The tag name.
 
     Returns:
         hiero.core.Tag: hierarchy, orig clip attributes
@@ -493,7 +494,7 @@ def get_trackitem_ayon_tag(track_item):
         return None
     for tag in _tags:
         # return only correct tag defined by global name
-        if AYON_TAG_NAME in tag.name():
+        if tag_name in tag.name():
             return tag
 
 

@@ -114,7 +114,7 @@ def get_tag_data(tag):
         json_data = tag_data["tag.json_metadata"]
         return json.loads(json_data)
 
-    except (KeyError, json.JSONDecoderError):
+    except (KeyError, json.JSONDecodeError):
         return {}
 
 
