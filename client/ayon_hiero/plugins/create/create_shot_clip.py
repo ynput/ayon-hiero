@@ -683,7 +683,7 @@ OTIO file.
                 "clipOut": track_item.timelineOut(),
                 "clipDuration": track_item_duration,
                 "sourceIn": track_item.sourceIn(),
-                "sourceOut": track_item.sourceOut(),                
+                "sourceOut": track_item.sourceOut(),
             }
         })
 
@@ -722,7 +722,7 @@ OTIO file.
             instance = creator.create(sub_instance_data, None)
             instance.transient_data["track_item"] = track_item
             self._add_instance_to_context(instance)
-            clip_instances[sub_creator_id] = instance.data_to_store()            
+            clip_instances[sub_creator_id] = instance.data_to_store()
 
         # Adjust clip tag to match new publisher
         track_item.removeTag(tag)
