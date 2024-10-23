@@ -210,7 +210,7 @@ class CreateShotClip(phiero.Creator):
         # Creator copy of object attributes that are modified during `process`
         presets = deepcopy(self.presets)
         gui_inputs = deepcopy(self.gui_inputs)
-
+    
         # get key pairs from presets and match it on ui inputs
         for k, v in gui_inputs.items():
             if v["type"] in ("dict", "section"):
