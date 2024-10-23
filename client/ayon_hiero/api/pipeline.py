@@ -86,10 +86,6 @@ class HieroHost(
         register_loader_plugin_path(LOAD_PATH)
         register_creator_plugin_path(CREATE_PATH)
 
-        # register callback for switching publishable
-        pyblish.register_callback(
-            "instanceToggled", on_pyblish_instance_toggled)
-
         # install menu
         menu.menu_install()
         menu.add_scripts_menu()

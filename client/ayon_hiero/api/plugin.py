@@ -616,13 +616,7 @@ class HieroCreator(Creator):
     """Creator class wrapper
     """
 
-    def apply_settings(self, project_settings):
-        hiero_create_settings = (
-            project_settings.get("hiero", {}).get("create")
-        )
-        self.presets = hiero_create_settings.get(
-            self.__class__.__name__, {}
-        )
+    settings_category = "hiero"
 
     def create(self, subset_name, instance_data, pre_create_data):
         # adding basic current context resolve objects
@@ -647,7 +641,7 @@ class PublishClip:
         kwargs (optional): additional data needed for rename=True (presets)
 
     Returns:
-        hiero.core.TrackItem: hiero track item object with pype tag
+        hiero.core.TrackItem: hiero track item object with AYON tag
     """
     types = {
         "shot": "shot",
@@ -917,7 +911,7 @@ class PublishClip:
 
         # add review track only to hero track
         if hero_track and self.review_layer:
-            self.tag_data.update({"reviewTrack": self.review_layer})
+            self.tag_data["reviewTrack"] = self.review_layer
         else:
             self.tag_data.update({"reviewTrack": None})
 
