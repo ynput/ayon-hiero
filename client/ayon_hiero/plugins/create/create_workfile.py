@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Creator plugin for creating workfiles."""
-import ayon_api
-
 from ayon_core.pipeline.create import CreatedInstance, AutoCreator
 
 from ayon_hiero.api import tags
@@ -58,12 +56,9 @@ class CreateWorkfile(AutoCreator):
         host_name = self.create_context.host_name
         variant = self.default_variant
 
-        folder_entity = ayon_api.get_folder_by_path(
-            project_name, folder_path
-        )
-        task_entity = ayon_api.get_task_by_name(
-            project_name, folder_entity["id"], task_name
-        )
+        folder_entity = self.create_context.get_current_folder_entity()
+        task_entity = self.create_context.get_current_task_entity()
+
         product_name = self.get_product_name(
             project_name,
             folder_entity,

@@ -15,6 +15,7 @@ from ayon_core.pipeline import (
     LoaderPlugin,
 )
 from ayon_core.pipeline.load import get_representation_path_from_context
+from ayon_core.settings import get_current_project_settings
 
 from . import lib
 
@@ -388,7 +389,7 @@ class ClipLoader:
         """ Initialize object
 
         Arguments:
-            cls (avalon.api.Loader): plugin object
+            cls (ayon_core.api.Loader): plugin object
             context (dict): loader plugin context
             options (dict)[optional]: possible keys:
                 projectBinPath: "path/to/binItem"
@@ -599,6 +600,8 @@ class ClipLoader:
 
 
 class HiddenHieroCreator(HiddenCreator):
+    """HiddenCreator class wrapper
+    """    
     host_name = "hiero"
     settings_category = "hiero"
 
@@ -615,10 +618,23 @@ class HiddenHieroCreator(HiddenCreator):
 class HieroCreator(Creator):
     """Creator class wrapper
     """
-
+    host_name = "hiero"    
     settings_category = "hiero"
 
-    def create(self, subset_name, instance_data, pre_create_data):
+    def __init__(self, *args, **kwargs):
+        super(Creator, self).__init__(*args, **kwargs)
+        self.presets = get_current_project_settings()[
+            "hiero"]["create"].get(self.__class__.__name__, {})
+
+    def create(self, product_name, instance_data, pre_create_data):
+        """Prepare data for new instance creation.
+
+        Args:
+            product_name(str): Product name of created instance.
+            instance_data(dict): Base data for instance.
+            pre_create_data(dict): Data based on pre creation attributes.
+                Those may affect how creator works.
+        """
         # adding basic current context resolve objects
         self.project = lib.get_current_project()
         self.sequence = lib.get_current_sequence()
@@ -658,9 +674,9 @@ class PublishClip:
     rename_default = False
     hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
-    subset_name_default = "<track_name>"
+    product_name_default = "<track_name>"
     review_track_default = "< none >"
-    subset_family_default = "plate"
+    product_type_default = "plate"
     count_from_default = 10
     count_steps_default = 10
     vertical_sync_default = False
@@ -682,7 +698,7 @@ class PublishClip:
             self,
             track_item,
             pre_create_data=None,
-            avalon=None,
+            data=None,
             rename_index=0):
 
         self.rename_index = rename_index
@@ -706,9 +722,9 @@ class PublishClip:
         self.track_name = str(track_name).replace(" ", "_")
         self.track_index = int(track_item.parent().trackIndex())
 
-        # adding tag.family into tag
-        if avalon:
-            self.tag_data.update(avalon)
+        # adding instance_data["productType"] into tag
+        if data:
+            self.tag_data.update(data)
 
         # add publish attribute to tag data
         self.tag_data.update({"publish": True})
@@ -739,15 +755,15 @@ class PublishClip:
         if self.rename:
             # rename track item
             self.track_item.setName(new_name)
-            self.tag_data["asset"] = new_name
+            self.tag_data["folderName"] = new_name
         else:
-            self.tag_data["asset"] = self.ti_name
+            self.tag_data["folderName"] = self.ti_name
             self.tag_data["hierarchyData"]["shot"] = self.ti_name
 
         # AYON unique identifier
         folder_path = "/{}/{}".format(
             self.tag_data["hierarchy"],
-            self.tag_data["asset"]
+            self.tag_data["folderName"]
         )
         self.tag_data["folderPath"] = folder_path
 
@@ -792,8 +808,8 @@ class PublishClip:
         self.hierarchy = get("hierarchy") or self.hierarchy_default
         self.count_from = get("countFrom") or self.count_from_default
         self.count_steps = get("countSteps") or self.count_steps_default
-        self.subset_name = get("subsetName") or self.subset_name_default
-        self.subset_family = get("subsetFamily") or self.subset_family_default
+        self.product_name = get("productName") or self.product_name_default
+        self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
         self.review_track = get("reviewTrack") or self.review_track_default
@@ -805,12 +821,12 @@ class PublishClip:
         }
 
         # build product name from layer name
-        if self.subset_name == "<track_name>":
-            self.subset_name = self.track_name
+        if self.product_name == "<track_name>":
+            self.product_name = self.track_name
 
         # create product for publishing
         self.product_name = (
-            self.subset_family + self.subset_name.capitalize()
+            self.product_type + self.product_name.capitalize()
         )
 
     def _replace_hash_to_expression(self, name, text):
@@ -898,7 +914,7 @@ class PublishClip:
                         hero_data["productName"] = self.product_name + str(
                             self.track_index)
                     # in case track name and product name is the same then add
-                    if self.subset_name == self.track_name:
+                    if self.product_name == self.track_name:
                         hero_data["productName"] = self.product_name
                     # assign data to return hierarchy data to tag
                     tag_hierarchy_data = hero_data
@@ -930,9 +946,7 @@ class PublishClip:
             "parents": self.parents,
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
-            "productType": self.subset_family,
-# TODO: investigate
-#            "families": [self.subset_family, self.data["productType"]]
+            "productType": self.product_type
         }
 
     def _convert_to_entity(self, src_type, template):

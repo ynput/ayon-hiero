@@ -93,17 +93,6 @@ class HieroHost(
         # register hiero events
         events.register_hiero_events()
 
-    def uninstall(self):
-        """
-        Uninstalling Hiero integration for avalon
-
-        """
-        log.info("Deregistering Hiero plug-ins..")
-        pyblish.deregister_host("hiero")
-        pyblish.deregister_plugin_path(PUBLISH_PATH)
-        deregister_loader_plugin_path(LOAD_PATH)
-        deregister_creator_plugin_path(CREATE_PATH)
-
     def get_context_data(self):
         # TODO: implement to support persisting context attributes
         return {}

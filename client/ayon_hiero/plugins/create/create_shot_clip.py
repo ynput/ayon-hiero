@@ -499,7 +499,7 @@ OTIO file.
                 track_item,
                 pre_create_data=pre_create_data,
                 rename_index=idx,
-                avalon=instance_data)
+                data=instance_data)
 
             track_item = publish_clip.convert()
             if track_item is None:
@@ -642,7 +642,7 @@ OTIO file.
             "tag.sourceResolution": ("sourceResolution", bool),
             "tag.hierarchy": ("hierarchy", str),
             "tag.hierarchyData": ("hierarchyData", json),
-            "tag.asset_name": ("asset", str),
+            "tag.asset_name": ("folderName", str),
             "tag.active": ("active", bool),
             "tag.productName": ("productName", str),
             "tag.parents": ("parents", json),
