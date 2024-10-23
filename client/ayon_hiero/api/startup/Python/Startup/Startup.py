@@ -2,8 +2,10 @@ import traceback
 
 # activate hiero from pype
 from ayon_core.pipeline import install_host
-import ayon_hiero.api as phiero
-install_host(phiero)
+from ayon_hiero.api import HieroHost
+
+host = HieroHost()
+install_host(host)
 
 try:
     __import__("ayon_hiero.api")

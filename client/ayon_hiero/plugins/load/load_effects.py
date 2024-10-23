@@ -176,7 +176,7 @@ class LoadEffects(load.LoaderPlugin):
             stitem.name(): stitem
             for stitem in phiero.flatten(active_track.subTrackItems())
         }
-        container = phiero.get_track_openpype_data(
+        container = phiero.get_track_ayon_data(
             active_track, object_name
         )
 
@@ -288,7 +288,7 @@ class LoadEffects(load.LoaderPlugin):
 
         data_imprint = {
             object_name: {
-                "schema": "openpype:container-2.0",
+                "schema": "ayon:container-2.0",
                 "id": AVALON_CONTAINER_ID,
                 "name": str(name),
                 "namespace": str(namespace),
@@ -302,4 +302,4 @@ class LoadEffects(load.LoaderPlugin):
                 data_imprint[object_name].update({k: v})
 
         self.log.debug("_ data_imprint: {}".format(data_imprint))
-        phiero.set_track_openpype_tag(track, data_imprint)
+        phiero.set_track_ayon_tag(track, data_imprint)

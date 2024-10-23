@@ -1,7 +1,7 @@
 from pprint import pformat
+import json
 import re
 import ast
-import json
 
 import pyblish.api
 
@@ -19,6 +19,7 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
     order = pyblish.api.CollectorOrder
     label = "Collect Frames"
     hosts = ["hiero"]
+    families = ["clip"]
 
     def process(self, context):
         self._context = context
@@ -37,10 +38,14 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
         data = {}
 
         # get tag metadata attribute
-        tag_data = tag.metadata()
+        tag_data = dict(tag.metadata())
+
+        if tag_data.get("tag.json_metadata"):
+            return json.loads(tag_data.get("tag.json_metadata"))
 
         # convert tag metadata to normal keys names and values to correct types
-        for k, v in dict(tag_data).items():
+        # legacy
+        for k, v in tag_data.items():
             key = k.replace("tag.", "")
 
             try:

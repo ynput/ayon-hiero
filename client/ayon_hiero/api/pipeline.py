@@ -9,20 +9,33 @@ from collections import OrderedDict
 import hiero
 from pyblish import api as pyblish
 
+from ayon_core.host import (
+    HostBase,
+    IWorkfileHost,
+    ILoadHost,
+    IPublishHost
+)
 from ayon_core.lib import Logger
 from ayon_core.pipeline import (
     schema,
     register_creator_plugin_path,
     register_loader_plugin_path,
-    deregister_creator_plugin_path,
-    deregister_loader_plugin_path,
     AVALON_CONTAINER_ID,
     AYON_CONTAINER_ID,
 )
+
 from ayon_core.tools.utils import host_tools
+
 from ayon_hiero import HIERO_ADDON_ROOT
 
 from . import lib, menu, events
+from .workio import (
+    open_file,
+    save_file,
+    file_extensions,
+    has_unsaved_changes,
+    current_file
+)
 
 log = Logger.get_logger(__name__)
 
@@ -35,42 +48,56 @@ CREATE_PATH = os.path.join(PLUGINS_DIR, "create").replace("\\", "/")
 AVALON_CONTAINERS = ":AVALON_CONTAINERS"
 
 
-def install():
-    """Installing Hiero integration."""
 
-    # adding all events
-    events.register_events()
+class HieroHost(
+    HostBase, IWorkfileHost, ILoadHost, IPublishHost
+):
+    name = "hiero"
 
-    log.info("Registering Hiero plug-ins..")
-    pyblish.register_host("hiero")
-    pyblish.register_plugin_path(PUBLISH_PATH)
-    register_loader_plugin_path(LOAD_PATH)
-    register_creator_plugin_path(CREATE_PATH)
+    def open_workfile(self, filepath):
+        return open_file(filepath)
 
-    # register callback for switching publishable
-    pyblish.register_callback("instanceToggled", on_pyblish_instance_toggled)
+    def save_workfile(self, filepath=None):
+        return save_file(filepath)
 
-    # install menu
-    menu.menu_install()
-    menu.add_scripts_menu()
+    def get_current_workfile(self):
+        return current_file()
 
-    # register hiero events
-    events.register_hiero_events()
+    def workfile_has_unsaved_changes(self):
+        return has_unsaved_changes()
 
+    def get_workfile_extensions(self):
+        return file_extensions()
 
-def uninstall():
-    """
-    Uninstalling Hiero integration for avalon
+    def get_containers(self):
+        return ls()
 
-    """
-    log.info("Deregistering Hiero plug-ins..")
-    pyblish.deregister_host("hiero")
-    pyblish.deregister_plugin_path(PUBLISH_PATH)
-    deregister_loader_plugin_path(LOAD_PATH)
-    deregister_creator_plugin_path(CREATE_PATH)
+    def install(self):
+        """Installing all requirements for hiero host"""
 
-    # register callback for switching publishable
-    pyblish.deregister_callback("instanceToggled", on_pyblish_instance_toggled)
+        # adding all events
+        events.register_events()
+
+        log.info("Registering Hiero plug-ins..")
+        pyblish.register_host("hiero")
+        pyblish.register_plugin_path(PUBLISH_PATH)
+        register_loader_plugin_path(LOAD_PATH)
+        register_creator_plugin_path(CREATE_PATH)
+
+        # install menu
+        menu.menu_install()
+        menu.add_scripts_menu()
+
+        # register hiero events
+        events.register_hiero_events()
+
+    def get_context_data(self):
+        # TODO: implement to support persisting context attributes
+        return {}
+
+    def update_context_data(self, data, changes):
+        # TODO: implement to support persisting context attributes
+        pass
 
 
 def containerise(track_item,
@@ -97,8 +124,8 @@ def containerise(track_item,
     """
 
     data_imprint = OrderedDict({
-        "schema": "openpype:container-2.0",
-        "id": AVALON_CONTAINER_ID,
+        "schema": "ayon:container-3.0",
+        "id": AYON_CONTAINER_ID,
         "name": str(name),
         "namespace": str(namespace),
         "loader": str(loader),
@@ -110,7 +137,7 @@ def containerise(track_item,
             data_imprint.update({k: v})
 
     log.debug("_ data_imprint: {}".format(data_imprint))
-    lib.set_trackitem_openpype_tag(track_item, data_imprint)
+    lib.set_trackitem_ayon_tag(track_item, data_imprint)
 
     return track_item
 
@@ -191,7 +218,7 @@ def parse_container(item, validate=True):
     # convert tag metadata to normal keys names
     if type(item) is hiero.core.VideoTrack:
         return_list = []
-        _data = lib.get_track_openpype_data(item)
+        _data = lib.get_track_ayon_data(item)
 
         if not _data:
             return
@@ -201,7 +228,7 @@ def parse_container(item, validate=True):
             return_list.append(container)
         return return_list
     else:
-        _data = lib.get_trackitem_openpype_data(item)
+        _data = lib.get_trackitem_ayon_data(item)
         return data_to_container(item, _data)
 
 
@@ -216,7 +243,7 @@ def _update_container_data(container, data):
 
 def update_container(item, data=None):
     """Update container data to input track_item or track's
-    openpype tag.
+    AYON tag.
 
     Args:
         item (hiero.core.TrackItem or hiero.core.VideoTrack):
@@ -236,8 +263,8 @@ def update_container(item, data=None):
         object_name = data["objectName"]
 
         # get all available containers
-        containers = lib.get_track_openpype_data(item)
-        container = lib.get_track_openpype_data(item, object_name)
+        containers = lib.get_track_ayon_data(item)
+        container = lib.get_track_ayon_data(item, object_name)
 
         containers = deepcopy(containers)
         container = deepcopy(container)
@@ -247,13 +274,13 @@ def update_container(item, data=None):
         # merge updated container back to containers
         containers.update({object_name: updated_container})
 
-        return bool(lib.set_track_openpype_tag(item, containers))
+        return bool(lib.set_track_ayon_tag(item, containers))
     else:
-        container = lib.get_trackitem_openpype_data(item)
+        container = lib.get_trackitem_ayon_data(item)
         updated_container = _update_container_data(container, data)
 
         log.info("Updating container: `{}`".format(item.name()))
-        return bool(lib.set_trackitem_openpype_tag(item, updated_container))
+        return bool(lib.set_trackitem_ayon_tag(item, updated_container))
 
 
 def launch_workfiles_app(*args):
@@ -330,11 +357,11 @@ def on_pyblish_instance_toggled(instance, old_value, new_value):
         instance, old_value, new_value))
 
     from ayon_hiero.api import (
-        get_trackitem_openpype_tag,
+        get_trackitem_ayon_tag,
         set_publish_attribute
     )
 
     # Whether instances should be passthrough based on new value
     track_item = instance.data["item"]
-    tag = get_trackitem_openpype_tag(track_item)
+    tag = get_trackitem_ayon_tag(track_item)
     set_publish_attribute(tag, new_value)
