@@ -160,7 +160,7 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             # add colorspace data
             instance.data.update({
                 "versionData": {
-                    "colorspace": track_item.sourceMediaColourTransform(),
+                    "colorSpace": track_item.sourceMediaColourTransform(),
                 }
             })
 
