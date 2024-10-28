@@ -158,11 +158,8 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             instance = context.create_instance(**data)
 
             # add colorspace data
-            instance.data.update({
-                "versionData": {
-                    "colorSpace": track_item.sourceMediaColourTransform(),
-                }
-            })
+            version_data = instance.data.setdefault("versionData", {})
+            version_data["colorSpace"] = track_item.sourceMediaColourTransform()
 
             # create shot instance for shot attributes create/update
             self.create_shot_instance(context, **data)
