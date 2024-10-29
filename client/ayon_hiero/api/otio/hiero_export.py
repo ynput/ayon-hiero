@@ -134,7 +134,7 @@ def create_otio_reference(clip):
     # get file info for path and start frame
     file_info = media_source.fileinfos().pop()
     start_frame = file_info.startFrame()
-    frame_start = media_source.timecodeStart()
+    timecode_start = media_source.timecodeStart()
     path = file_info.filename()
 
     # get padding and other file infos
@@ -174,7 +174,7 @@ def create_otio_reference(clip):
                 frame_zero_padding=padding,
                 rate=fps,
                 available_range=create_otio_time_range(
-                    frame_start,
+                    timecode_start,
                     frame_duration,
                     fps
                 )
@@ -188,7 +188,7 @@ def create_otio_reference(clip):
         otio_ex_ref_item = otio.schema.ExternalReference(
             target_url=reformat_path,
             available_range=create_otio_time_range(
-                frame_start,
+                timecode_start,
                 frame_duration,
                 fps
             )
