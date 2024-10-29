@@ -25,6 +25,5 @@ class CollectPlate(pyblish.api.InstancePlugin):
         )
 
         track_item = instance.data["item"]
-        instance.data["versionData"] = {
-            "colorSpace": track_item.sourceMediaColourTransform(),
-        }
+        version_data = instance.data.setdefault("versionData", {})
+        version_data["colorSpace"] = track_item.sourceMediaColourTransform()
