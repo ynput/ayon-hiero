@@ -602,7 +602,6 @@ class ClipLoader:
 class HiddenHieroCreator(HiddenCreator):
     """HiddenCreator class wrapper
     """
-    host_name = "hiero"
     settings_category = "hiero"
 
     def collect_instances(self):
@@ -618,7 +617,6 @@ class HiddenHieroCreator(HiddenCreator):
 class HieroCreator(Creator):
     """Creator class wrapper
     """
-    host_name = "hiero"
     settings_category = "hiero"
 
     def __init__(self, *args, **kwargs):
