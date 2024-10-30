@@ -676,7 +676,7 @@ OTIO file.
                     f"tag data: {error}."
                 )
 
-        if not "folderPath" in instance_data:
+        if "folderPath" not in instance_data:
             try:
                 instance_data["folderPath"] = (
                     "/" + instance_data["hierarchy"] + "/" +
