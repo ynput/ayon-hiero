@@ -94,7 +94,7 @@ class ExtractClipEffects(publish.Extractor):
 
     def copy_linked_files(self, effect, dst_dir):
         for k, v in effect["node"].items():
-            if k in "file" and v != '':
+            if k in "file" and isinstance(v, str) and v != '':
                 base_name = os.path.basename(v)
                 dst = os.path.join(dst_dir, base_name).replace("\\", "/")
 

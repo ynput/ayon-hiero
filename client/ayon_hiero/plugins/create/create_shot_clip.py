@@ -629,7 +629,13 @@ OTIO file.
         instance_data = {
             "clip_index": track_item.guid(),
             "task": None,
+            "variant": track_item.parentTrack().name(),
+            "extract_audio": False,
         }
+        for create_attr in self.get_pre_create_attr_defs():
+            if isinstance(create_attr.key, str):
+                instance_data[create_attr.key] = create_attr.default
+
         required_key_mapping = {
             "tag.audio": ("extract_audio", bool),
             "tag.heroTrack": ("heroTrack", bool),
@@ -643,27 +649,51 @@ OTIO file.
             "tag.hierarchy": ("hierarchy", str),
             "tag.hierarchyData": ("hierarchyData", json),
             "tag.asset_name": ("folderName", str),
+            "tag.asset": ("productName", str),
             "tag.active": ("active", bool),
             "tag.productName": ("productName", str),
             "tag.parents": ("parents", json),
         }
 
-        try:
-            for key, value in required_key_mapping.items():
+        for key, value in required_key_mapping.items():
+            if key not in data:
+                continue
+
+            try:
                 instance_key, type_cast = value
                 if type_cast is bool:
                     instance_data[instance_key] = data[key] == "True"
                 elif type_cast is json:
                     conformed_data = data[key].replace("'", "\"")
+                    conformed_data = conformed_data.replace('u"', '"')
                     instance_data[instance_key] = json.loads(conformed_data)
                 else:
                     instance_data[instance_key] = type_cast(data[key])
 
-        except RuntimeError as error:
-            self.log.warning(
-                "Cannot retrieve instance from legacy "
-                f"tag data: {error}."
-            )
+            except Exception as error:
+                self.log.warning(
+                    "Cannot retrieve instance from legacy "
+                    f"tag data: {error}."
+                )
+
+        if not "folderPath" in instance_data:
+            try:
+                instance_data["folderPath"] = (
+                    "/" + instance_data["hierarchy"] + "/" +
+                    instance_data["productName"]
+                )
+            except KeyError:
+                instance_data["folderPath"] = "unknown"
+                instance_data["active"] = False
+
+        if "tag.subset" in data:
+            instance_data["variant"] = data["tag.subset"].replace("plate", "")
+
+        for folder in instance_data.get("parents", []):
+            if "entity_name" in folder:
+                folder["folder_name"] = folder["entity_name"]
+            if "entity_type" in folder:
+                folder["folder_type"] = folder["entity_type"]
 
         # Create parent shot instance.
         sub_instance_data = instance_data.copy()
@@ -672,6 +702,7 @@ OTIO file.
             sub_instance_data["workfileFrameStart"]
         sub_instance_data.update({
             "label": f"{sub_instance_data['folderPath']} shot",
+            "variant": "main",
             "creator_attributes": {
                 "workfileFrameStart": workfileFrameStart,
                 "handleStart": sub_instance_data["handleStart"],
