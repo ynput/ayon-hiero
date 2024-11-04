@@ -132,7 +132,8 @@ def create_otio_reference(clip):
 
     # get file info for path and start frame
     file_info = media_source.fileinfos().pop()
-    frame_start = file_info.startFrame()
+    start_frame = file_info.startFrame()
+    timecode_start = media_source.timecodeStart()
     path = file_info.filename()
 
     # get padding and other file infos
@@ -168,11 +169,11 @@ def create_otio_reference(clip):
                 target_url_base=dirname + os.sep,
                 name_prefix=file_head,
                 name_suffix=extension,
-                start_frame=frame_start,
+                start_frame=start_frame,
                 frame_zero_padding=padding,
                 rate=fps,
                 available_range=create_otio_time_range(
-                    frame_start,
+                    timecode_start,
                     frame_duration,
                     fps
                 )
@@ -186,7 +187,7 @@ def create_otio_reference(clip):
         otio_ex_ref_item = otio.schema.ExternalReference(
             target_url=reformat_path,
             available_range=create_otio_time_range(
-                frame_start,
+                timecode_start,
                 frame_duration,
                 fps
             )
@@ -265,9 +266,12 @@ def create_otio_clip(track_item):
     name = track_item.name()
 
     media_reference = create_otio_reference(clip)
+    available_start = media_reference.available_range.start_time
+    conformed_start_value = available_start.value_rescaled_to(fps)
+
     source_range = create_otio_time_range(
-        int(source_in),
-        int(duration),
+        conformed_start_value + source_in,
+        duration,
         fps
     )
 
