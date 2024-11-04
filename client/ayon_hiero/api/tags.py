@@ -7,6 +7,9 @@ import ayon_api
 from ayon_core.lib import Logger
 from ayon_core.pipeline import get_current_project_name
 
+from . import constants
+
+
 log = Logger.get_logger(__name__)
 
 
@@ -86,21 +89,66 @@ def update_tag(tag, data):
     # get metadata key from data
     data_mtd = data.get("metadata", {})
 
-    # set all data metadata to tag metadata
-    for _k, _v in data_mtd.items():
-        value = str(_v)
-        if isinstance(_v, dict):
-            value = json.dumps(_v)
-
-        # set the value
-        mtd.setValue(
-            "tag.{}".format(str(_k)),
-            value
-        )
-
+    mtd.setValue(
+        "tag.json_metadata",
+        json.dumps(data_mtd)
+    )
     # set note description of tag
-    tag.setNote(str(data["note"]))
+    if "note" in data:
+        tag.setNote(str(data["note"]))
+
     return tag
+
+
+def get_tag_data(tag):
+    """
+    Args:
+        tag (hiero.core.Tag): The tag to retrieve data from.
+
+    Returns:
+        dict. The tag data.
+    """
+    tag_data = dict(tag.metadata())
+
+    try:
+        json_data = tag_data["tag.json_metadata"]
+        return json.loads(json_data)
+
+    except (KeyError, json.JSONDecodeError):
+        return {}
+
+
+def get_or_create_workfile_tag(create=False):
+    """
+    Args:
+        create (bool): Create the project tag if missing.
+
+    Returns:
+        hiero.core.Tag: The workfile tag or None
+    """
+    from .lib import get_current_project  # noqa prevent-circular-import
+    current_project = get_current_project()
+
+    # retrieve parent tag bin
+    project_tag_bin = current_project.tagsBin()
+    for tag_bin in project_tag_bin.bins():
+        if tag_bin.name() == constants.AYON_WORKFILE_TAG_BIN:
+            break
+    else:
+        if create:
+            tag_bin = project_tag_bin.addItem(constants.AYON_WORKFILE_TAG_BIN)
+        else:
+            return None
+
+    # retrieve tag
+    for item in tag_bin.items():
+        if (isinstance(item, hiero.core.Tag)
+            and item.name() == constants.AYON_WORKFILE_TAG_NAME):
+            return item
+
+    workfile_tag = hiero.core.Tag(constants.AYON_WORKFILE_TAG_NAME)
+    tag_bin.addItem(workfile_tag)
+    return workfile_tag
 
 
 def add_tags_to_workfile():
