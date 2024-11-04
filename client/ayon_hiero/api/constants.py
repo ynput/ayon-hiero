@@ -1,3 +1,8 @@
-OPENPYPE_TAG_NAME = "openpypeData"
-DEFAULT_SEQUENCE_NAME = "openpypeSequence"
-DEFAULT_BIN_NAME = "openpypeBin"
+AYON_TAG_NAME = "AYONdata"
+LEGACY_OPENPYPE_TAG_NAME = "openpypeData"
+
+AYON_WORKFILE_TAG_BIN = "AYONdata"
+AYON_WORKFILE_TAG_NAME = "workfile"
+
+DEFAULT_SEQUENCE_NAME = "AYONsequence"
+DEFAULT_BIN_NAME = "AYONbin"
