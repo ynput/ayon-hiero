@@ -689,7 +689,9 @@ class PublishClip:
         # publish settings
         "audio", "sourceResolution",
         # shot attributes
-        "workfileFrameStart", "handleStart", "handleEnd"
+        "workfileFrameStart", "handleStart", "handleEnd",
+        # instance attributes data
+        "reviewableTrack",
     }
 
     def __init__(

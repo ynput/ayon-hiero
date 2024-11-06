@@ -176,7 +176,52 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
     """ Base clip product creator.
     """
 
-    def get_instance_attr_defs(self):
+    def register_callbacks(self):
+        self.create_context.add_value_changed_callback(self._on_value_change)
+
+    def _on_value_change(self, event):
+        for item in event["changes"]:
+            instance = item["instance"]
+            if (
+                instance is None
+                or instance.creator_identifier != self.identifier
+            ):
+                continue
+
+            changes = item["changes"].get("creator_attributes", {})
+            print(changes)
+
+            attr_defs = instance.creator_attributes.attr_defs
+
+            if "review" in changes:
+                review_value = changes["review"]
+                review_track = next(
+                    attr_def
+                    for attr_def in attr_defs
+                    if attr_def.key == "reviewableTrack"
+                )
+
+                if review_value:
+                    instance.creator_attributes["reviewableTrack"] = "< none >"
+                    review_track.visible = False
+                else:
+                    review_track.visible = True
+
+            elif "reviewableTrack" in changes:
+                # if set value to "< none >" then switch review to False
+                review_switch = next(
+                    attr_def for attr_def in attr_defs if attr_def.key == "review"
+                )
+
+                if changes["reviewableTrack"] == "< none >":
+                    review_switch.visible = True
+                else:
+                    instance.creator_attributes["review"] = False
+                    review_switch.visible = False
+
+            instance.set_create_attr_defs(attr_defs)
+
+    def get_attr_defs_for_instance(self, instance):
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
@@ -192,23 +237,34 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
         if self.product_type == "plate":
+            review_switch = BoolDef(
+                "review",
+                label="Review",
+                tooltip="Switch to reviewable instance",
+                default=False,
+            )
+            reviewable_track = EnumDef(
+                "reviewableTrack",
+                label="Use Review Track",
+                tooltip=(
+                    "Generate preview videos on fly, if '< none >' "
+                    "is defined nothing will be generated."
+                ),
+                items=["< none >"] + gui_tracks,
+            )
             instance_attributes.extend([
-                BoolDef(
-                    "vSyncOn",
-                    label="Enable Vertical Sync",
-                    tooltip="Switch on if you want clips above "
-                            "each other to share its attributes",
-                    default=True,
-                ),
-                EnumDef(
-                    "vSyncTrack",
-                    label="Hero Track",
-                    tooltip="Select driving track name which should "
-                            "be mastering all others",
-                    items=gui_tracks or ["<nothing to select>"],
-                ),
+                review_switch,
+                reviewable_track,
             ])
+            if instance.creator_attributes["reviewableTrack"] == "< none >":
+                review_switch.visible = True
+            else:
+                review_switch.visible = False
 
+            if instance.creator_attributes["review"] is True:
+                reviewable_track.visible = False
+            else:
+                reviewable_track.visible = True
         return instance_attributes
 
 
@@ -564,16 +620,21 @@ OTIO file.
                 # metadata recollection as publish time.
                 else:
                     parenting_data = clip_instances[shot_creator_id]
-                    sub_instance_data.update({
-                        "parent_instance_id": parenting_data["instance_id"],
-                        "label": (
-                            f"{shot_folder_path} "
-                            f"{creator.product_type}"
-                        ),
-                        "creator_attributes": {
-                            "parentInstance": parenting_data["label"],
+                    sub_instance_data.update(
+                        {
+                            "parent_instance_id": parenting_data["instance_id"],
+                            "label": (
+                                f"{shot_folder_path} "
+                                f"{creator.product_type}"
+                            ),
+                            "creator_attributes": {
+                                "parentInstance": parenting_data["label"],
+                                "reviewableTrack": sub_instance_data[
+                                    "reviewableTrack"],
+                                "review": False,
+                            },
                         }
-                    })
+                    )
 
                 instance = creator.create(sub_instance_data, None)
                 instance.transient_data["track_item"] = track_item
@@ -738,17 +799,22 @@ OTIO file.
         for sub_creator_id in sub_creators:
             sub_instance_data = instance_data.copy()
             creator = self.create_context.creators[sub_creator_id]
-            sub_instance_data.update({
-                "clip_variant": sub_instance_data["variant"],
-                "parent_instance_id": parenting_data["instance_id"],
-                "label": (
-                    f"{sub_instance_data['folderPath']} "
-                    f"{creator.product_type}"
-                ),
-                "creator_attributes": {
-                    "parentInstance": parenting_data["label"],
+            sub_instance_data.update(
+                {
+                    "clip_variant": sub_instance_data["variant"],
+                    "parent_instance_id": parenting_data["instance_id"],
+                    "label": (
+                        f"{sub_instance_data['folderPath']} "
+                        f"{creator.product_type}"
+                    ),
+                    "creator_attributes": {
+                        "parentInstance": parenting_data["label"],
+                        "reviewableTrack": sub_instance_data[
+                            "reviewableTrack"],
+                        "review": False,
+                    },
                 }
-            })
+            )
 
             instance = creator.create(sub_instance_data, None)
             instance.transient_data["track_item"] = track_item
