@@ -152,10 +152,10 @@ def create_otio_reference(clip):
 
     # add resolution metadata
     metadata.update({
-        "openpype.source.colourtransform": clip.sourceMediaColourTransform(),
-        "openpype.source.width": int(media_source.width()),
-        "openpype.source.height": int(media_source.height()),
-        "openpype.source.pixelAspect": float(media_source.pixelAspect())
+        "ayon.source.colorspace": clip.sourceMediaColourTransform(),
+        "ayon.source.width": int(media_source.width()),
+        "ayon.source.height": int(media_source.height()),
+        "ayon.source.pixelAspect": float(media_source.pixelAspect())
     })
 
     otio_ex_ref_item = None
@@ -369,17 +369,6 @@ def add_otio_metadata(otio_item, media_source, **kwargs):
 
 
 def create_otio_timeline():
-
-    def set_prev_item(itemindex, track_item):
-        # Add Gap if needed
-        if itemindex == 0:
-            # if it is first track item at track then add
-            # it to previous item
-            return track_item
-
-        else:
-            # get previous item
-            return track_item.parent().items()[itemindex - 1]
 
     # get current timeline
     CTX.timeline = hiero.ui.activeSequence()
