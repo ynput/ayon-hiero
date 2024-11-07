@@ -198,26 +198,13 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 review_track = next(
                     attr_def
                     for attr_def in attr_defs
-                    if attr_def.key == "reviewableTrack"
+                    if attr_def.key == "reviewableSource"
                 )
 
                 if review_value:
-                    instance.creator_attributes["reviewableTrack"] = "< none >"
-                    review_track.visible = False
-                else:
                     review_track.visible = True
-
-            elif "reviewableTrack" in changes:
-                # if set value to "< none >" then switch review to False
-                review_switch = next(
-                    attr_def for attr_def in attr_defs if attr_def.key == "review"
-                )
-
-                if changes["reviewableTrack"] == "< none >":
-                    review_switch.visible = True
                 else:
-                    instance.creator_attributes["review"] = False
-                    review_switch.visible = False
+                    review_track.visible = False
 
             instance.set_create_attr_defs(attr_defs)
 
@@ -225,7 +212,10 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -237,39 +227,44 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
         if self.product_type == "plate":
-            # Review checkbox visibility
-            current_review_track = instance.creator_attributes.get(
-                "reviewableTrack"
-            )
-            review_visible = (
-                current_review_track is None
-                or current_review_track == "< none >"
-            )
             # Review track visibility
             current_review = instance.creator_attributes.get("review")
             if current_review is None:
                 current_review = False
-            reviewable_track_visible = not current_review
 
-            instance_attributes.extend([
-                BoolDef(
-                    "review",
-                    label="Review",
-                    tooltip="Switch to reviewable instance",
-                    default=False,
-                    visible=review_visible,
-                ),
-                EnumDef(
-                    "reviewableTrack",
-                    label="Use Review Track",
-                    tooltip=(
-                        "Generate preview videos on fly, if '< none >' "
-                        "is defined nothing will be generated."
+            review_source = instance.creator_attributes.get("reviewableSource")
+            if review_source:
+                instance.creator_attributes["review"] = True
+                current_review = True
+
+            instance_attributes.extend(
+                [
+                    BoolDef(
+                        "review",
+                        label="Review",
+                        tooltip="Switch to reviewable instance",
+                        default=False,
                     ),
-                    items=["< none >"] + gui_tracks,
-                    visible=reviewable_track_visible,
-                ),
-            ])
+                    EnumDef(
+                        "reviewableSource",
+                        label="Reviewable Source",
+                        tooltip=(
+                            "Generate preview videos on fly, if '< none >' "
+                            "is defined nothing will be generated."
+                        ),
+                        items=(
+                            [
+                                {
+                                    "value": "clip_media",
+                                    "label": "[ Clip's media ]",
+                                },
+                            ]
+                            + gui_tracks
+                        ),
+                        visible=current_review,
+                    ),
+                ]
+            )
         return instance_attributes
 
 
@@ -332,7 +327,10 @@ OTIO file.
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -440,9 +438,12 @@ OTIO file.
                 label="Hero track",
                 tooltip="Select driving track name which should "
                         "be mastering all others",
-                items=gui_tracks or ["<nothing to select>"],
+                items=(
+                    gui_tracks or [
+                        {"value": None, "label": "< nothing to select> "}
+                        ]
+                ),
             ),
-
             # publishSettings
             UILabelDef(
                 label=header_label("Publish Settings")
@@ -462,11 +463,15 @@ OTIO file.
                 items=['plate', 'take'],
             ),
             EnumDef(
-                "reviewableTrack",
-                label="Use Review Track",
+                "reviewableSource",
+                label="Reviewable Source",
                 tooltip="Generate preview videos on fly, if "
-                        "'< none >' is defined nothing will be generated.",
-                items=['< none >'] + gui_tracks,
+                "'< none >' is defined nothing will be generated.",
+                items=[
+                    {"value": None, "label": "< none >"},
+                    {"value": "clip_media", "label": "[ Clip's media ]"},
+                ]
+                + gui_tracks,
             ),
             BoolDef(
                 "export_audio",
@@ -477,10 +482,9 @@ OTIO file.
             BoolDef(
                 "sourceResolution",
                 label="Source resolution",
-                tooltip="Is resloution taken from timeline or source?",
+                tooltip="Is resolution taken from timeline or source?",
                 default=False,
             ),
-
             # shotAttr
             UILabelDef(
                 label=header_label("Shot Attributes"),
@@ -628,14 +632,12 @@ OTIO file.
                     sub_instance_data.update(
                         {
                             "parent_instance_id": parenting_data["instance_id"],
-                            "label": (
-                                f"{shot_folder_path} "
-                                f"{creator.product_type}"
-                            ),
+                            "label": (f"{shot_folder_path} " f"{creator.product_type}"),
                             "creator_attributes": {
                                 "parentInstance": parenting_data["label"],
-                                "reviewableTrack": sub_instance_data[
-                                    "reviewableTrack"],
+                                "reviewableSource": sub_instance_data[
+                                    "reviewableSource"
+                                ],
                                 "review": False,
                             },
                         }
@@ -814,8 +816,8 @@ OTIO file.
                     ),
                     "creator_attributes": {
                         "parentInstance": parenting_data["label"],
-                        "reviewableTrack": sub_instance_data[
-                            "reviewableTrack"],
+                        "reviewableSource": sub_instance_data[
+                            "reviewableSource"],
                         "review": False,
                     },
                 }
