@@ -103,8 +103,6 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             "productName": f"{self.product_type}{instance_data['variant']}",
             "productType": self.product_type,
             "newHierarchyIntegration": True,
-            # Backwards compatible (Deprecated since 24/06/06)
-            "newAssetPublishing": True,
         })
 
         new_instance = CreatedInstance(
