@@ -914,17 +914,19 @@ class PublishClip:
                 then skip this clip and do not add to hierarchical shared
                 metadata to them.
                 """
-                if self.clip_in < hero_in and self.clip_out > hero_out:
+                if self.clip_in < hero_in or self.clip_out > hero_out:
                     continue
 
                 _distrib_data = deepcopy(hero_data)
                 _distrib_data["heroTrack"] = False
+
+                # form used clip unique key
                 data_product_name = hero_data["productName"]
+                new_clip_name = hero_data["newClipName"]
 
                 # get used names list for duplicity check
                 used_names_list = self.vertical_clip_used.setdefault(
-                    data_product_name, []
-                )
+                    f"{new_clip_name}{data_product_name}", [])
 
                 clip_product_name = self.product_name
 
