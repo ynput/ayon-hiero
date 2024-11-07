@@ -237,34 +237,39 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
         if self.product_type == "plate":
-            review_switch = BoolDef(
-                "review",
-                label="Review",
-                tooltip="Switch to reviewable instance",
-                default=False,
+            # Review checkbox visibility
+            current_review_track = instance.creator_attributes.get(
+                "reviewableTrack"
             )
-            reviewable_track = EnumDef(
-                "reviewableTrack",
-                label="Use Review Track",
-                tooltip=(
-                    "Generate preview videos on fly, if '< none >' "
-                    "is defined nothing will be generated."
-                ),
-                items=["< none >"] + gui_tracks,
+            review_visible = (
+                current_review_track is None
+                or current_review_track == "< none >"
             )
-            instance_attributes.extend([
-                review_switch,
-                reviewable_track,
-            ])
-            if instance.creator_attributes["reviewableTrack"] == "< none >":
-                review_switch.visible = True
-            else:
-                review_switch.visible = False
+            # Review track visibility
+            current_review = instance.creator_attributes.get("review")
+            if current_review is None:
+                current_review = False
+            reviewable_track_visible = not current_review
 
-            if instance.creator_attributes["review"] is True:
-                reviewable_track.visible = False
-            else:
-                reviewable_track.visible = True
+            instance_attributes.extend([
+                BoolDef(
+                    "review",
+                    label="Review",
+                    tooltip="Switch to reviewable instance",
+                    default=False,
+                    visible=review_visible,
+                ),
+                EnumDef(
+                    "reviewableTrack",
+                    label="Use Review Track",
+                    tooltip=(
+                        "Generate preview videos on fly, if '< none >' "
+                        "is defined nothing will be generated."
+                    ),
+                    items=["< none >"] + gui_tracks,
+                    visible=reviewable_track_visible,
+                ),
+            ])
         return instance_attributes
 
 
