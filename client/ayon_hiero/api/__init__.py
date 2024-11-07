@@ -37,9 +37,6 @@ from .lib import (
     get_track_ayon_tag,
     set_track_ayon_tag,
     get_track_ayon_data,
-    get_track_item_pype_tag,
-    set_track_item_pype_tag,
-    get_track_item_pype_data,
     get_trackitem_ayon_tag,
     set_trackitem_ayon_tag,
     get_trackitem_ayon_data,
@@ -111,10 +108,6 @@ __all__ = [
     "apply_colorspace_project",
     "apply_colorspace_clips",
     "get_sequence_pattern_and_padding",
-    # deprecated
-    "get_track_item_pype_tag",
-    "set_track_item_pype_tag",
-    "get_track_item_pype_data",
 
     # plugins
     "CreatorWidget",

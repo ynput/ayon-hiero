@@ -459,24 +459,6 @@ def get_track_ayon_data(track, container_name=None):
     )
 
 
-@deprecated("ayon_hiero.api.lib.get_trackitem_ayon_tag")
-def get_track_item_pype_tag(track_item):
-    # backward compatibility alias
-    return get_trackitem_ayon_tag(track_item)
-
-
-@deprecated("ayon_hiero.api.lib.set_trackitem_ayon_tag")
-def set_track_item_pype_tag(track_item, data=None):
-    # backward compatibility alias
-    return set_trackitem_ayon_tag(track_item, data)
-
-
-@deprecated("ayon_hiero.api.lib.get_trackitem_ayon_data")
-def get_track_item_pype_data(track_item):
-    # backward compatibility alias
-    return get_trackitem_ayon_data(track_item)
-
-
 def get_trackitem_ayon_tag(track_item, tag_name=AYON_TAG_NAME):
     """
     Get pype track item tag created by creator or loader plugin.
