@@ -593,7 +593,7 @@ def imprint(track_item, data=None):
 
     Arguments:
         track_item (hiero.core.TrackItem): hiero track item object
-        data (dict): Any data which needst to be imprinted
+        data (dict): Any data which needs to be imprinted
 
     Examples:
         data = {
@@ -604,51 +604,7 @@ def imprint(track_item, data=None):
     """
     data = data or {}
 
-    tag = set_trackitem_ayon_tag(track_item, data)
-
-    # add publish attribute
-    set_publish_attribute(tag, True)
-
-
-def set_publish_attribute(tag, value):
-    """ Set Publish attribute in input Tag object
-
-    Attribute:
-        tag (hiero.core.Tag): a tag object
-        value (bool): True or False
-    """
-    tag_data = tag.metadata()
-    try:
-        tag_json_data = tag_data["tag.json_metadata"]
-        metadata = json.loads(tag_json_data)
-
-    except (KeyError, json.JSONDecodeError):  # missing key or invalid tag data
-        metadata = {}
-
-    metadata["publish"] = value
-    tag_data.setValue("tag.json_metadata", json.dumps(metadata))
-
-
-def get_publish_attribute(tag):
-    """ Get Publish attribute from input Tag object
-
-    Attribute:
-        tag (hiero.core.Tag): a tag object
-
-    Returns:
-        object: data found on publish attribute or None
-    """
-    tag_data = tag.metadata()
-
-    # get data to the publish attribute
-    try:
-        tag_json_data = tag_data["tag.json_metadata"]
-        tag_data = json.loads(tag_json_data)
-
-    except (KeyError, json.JSONDecodeError):  # missing key or invalid tag data
-        return None
-
-    return tag_data["publish"]
+    set_trackitem_ayon_tag(track_item, data)
 
 
 def sync_avalon_data_to_workfile():
