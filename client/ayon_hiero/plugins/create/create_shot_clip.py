@@ -462,7 +462,7 @@ OTIO file.
                 items=['plate', 'take'],
             ),
             EnumDef(
-                "reviewTrack",
+                "reviewableTrack",
                 label="Use Review Track",
                 tooltip="Generate preview videos on fly, if "
                         "'< none >' is defined nothing will be generated.",
