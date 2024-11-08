@@ -228,7 +228,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
         ]
         if self.product_type == "plate":
             # Review track visibility
-            current_review = instance.creator_attributes.get("review")
+            current_review = instance.creator_attributes.get("review", False)
 
             instance_attributes.extend(
                 [
@@ -627,11 +627,7 @@ OTIO file.
                             "parent_instance_id": parenting_data["instance_id"],
                             "label": (f"{shot_folder_path} " f"{creator.product_type}"),
                             "creator_attributes": {
-                                "parentInstance": parenting_data["label"],
-                                "reviewableSource": sub_instance_data[
-                                    "reviewableSource"
-                                ],
-                                "review": False,
+                                "parentInstance": parenting_data["label"]
                             },
                         }
                     )
