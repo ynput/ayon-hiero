@@ -189,22 +189,23 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 continue
 
             changes = item["changes"].get("creator_attributes", {})
-            print(changes)
 
             attr_defs = instance.creator_attributes.attr_defs
 
-            if "review" in changes:
-                review_value = changes["review"]
-                reviewable_source = next(
-                    attr_def
-                    for attr_def in attr_defs
-                    if attr_def.key == "reviewableSource"
-                )
+            if "review" not in changes:
+                continue
 
-                if review_value:
-                    reviewable_source.visible = True
-                else:
-                    reviewable_source.visible = False
+            review_value = changes["review"]
+            reviewable_source = next(
+                attr_def
+                for attr_def in attr_defs
+                if attr_def.key == "reviewableSource"
+            )
+
+            if review_value:
+                reviewable_source.visible = True
+            else:
+                reviewable_source.visible = False
 
             instance.set_create_attr_defs(attr_defs)
 
