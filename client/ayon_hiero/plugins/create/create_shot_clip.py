@@ -239,8 +239,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                         "reviewableSource",
                         label="Reviewable Source",
                         tooltip=(
-                            "Generate preview videos on fly, if '< none >' "
-                            "is defined nothing will be generated."
+                            "Selecting source for reviewable files."
                         ),
                         items=(
                             [
