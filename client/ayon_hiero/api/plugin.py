@@ -674,7 +674,7 @@ class PublishClip:
     rename_default = False
     hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
-    base_product_name_default = "<track_name>"
+    base_product_variant_default = "<track_name>"
     review_track_default = "< none >"
     product_type_default = "plate"
     count_from_default = 10
@@ -693,6 +693,11 @@ class PublishClip:
         # shot attributes
         "workfileFrameStart", "handleStart", "handleEnd"
     }
+
+    @classmethod
+    def restore_all_caches(cls):
+        cls.vertical_clip_match = {}
+        cls.vertical_clip_used = {}
 
     def __init__(
             self,
@@ -804,8 +809,8 @@ class PublishClip:
         self.hierarchy = get("hierarchy") or self.hierarchy_default
         self.count_from = get("countFrom") or self.count_from_default
         self.count_steps = get("countSteps") or self.count_steps_default
-        self.base_product_name = (
-            get("productName") or self.base_product_name_default)
+        self.base_product_variant = (
+            get("clipVariant") or self.base_product_variant_default)
         self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
@@ -818,12 +823,15 @@ class PublishClip:
         }
 
         # build product name from layer name
-        if self.base_product_name == "<track_name>":
-            self.base_product_name = self.track_name
+        if self.base_product_variant == "<track_name>":
+            self.base_product_variant = self.track_name
+            self.variant = self.track_name
+        else:
+            self.variant = self.base_product_variant
 
         # create product for publishing
         self.product_name = (
-            f"{self.product_type}{self.base_product_name.capitalize()}")
+            f"{self.product_type}{self.base_product_variant.capitalize()}")
 
     def _replace_hash_to_expression(self, name, text):
         """ Replace hash with number in correct padding. """
@@ -855,7 +863,8 @@ class PublishClip:
         hierarchy_data = deepcopy(self.hierarchy_data)
         _data = self.track_item_default_data.copy()
 
-        # QUESTION: what is this for? it seems we always have pre_create_data
+        # in case we are running creators headless default
+        # precreate data values are used
         if self.pre_create_data:
 
             # adding tag metadata from ui
@@ -931,7 +940,7 @@ class PublishClip:
                 clip_product_name = self.product_name
 
                 # in case track name and product name is the same then add
-                if self.base_product_name == self.track_name:
+                if self.base_product_variant == self.track_name:
                     clip_product_name = self.product_name
 
                 # add track index in case duplicity of names in hero data
@@ -948,6 +957,7 @@ class PublishClip:
                         f"{clip_product_name}{self.rename_index}")
 
                 _distrib_data["productName"] = clip_product_name
+                _distrib_data["variant"] = self.variant
                 # assign data to return hierarchy data to tag
                 tag_instance_data = _distrib_data
 
@@ -982,7 +992,8 @@ class PublishClip:
             "parents": self.parents,
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
-            "productType": self.product_type
+            "productType": self.product_type,
+            "variant": self.variant,
         }
 
     def _convert_to_entity(self, src_type, template):
