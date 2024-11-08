@@ -201,11 +201,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 for attr_def in attr_defs
                 if attr_def.key == "reviewableSource"
             )
-
-            if review_value:
-                reviewable_source.visible = True
-            else:
-                reviewable_source.visible = False
+            reviewable_source.visible = review_value
 
             instance.set_create_attr_defs(attr_defs)
 
