@@ -195,16 +195,16 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
 
             if "review" in changes:
                 review_value = changes["review"]
-                review_track = next(
+                reviewable_source = next(
                     attr_def
                     for attr_def in attr_defs
                     if attr_def.key == "reviewableSource"
                 )
 
                 if review_value:
-                    review_track.visible = True
+                    reviewable_source.visible = True
                 else:
-                    review_track.visible = False
+                    reviewable_source.visible = False
 
             instance.set_create_attr_defs(attr_defs)
 
@@ -229,13 +229,6 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
         if self.product_type == "plate":
             # Review track visibility
             current_review = instance.creator_attributes.get("review")
-            if current_review is None:
-                current_review = False
-
-            review_source = instance.creator_attributes.get("reviewableSource")
-            if review_source:
-                instance.creator_attributes["review"] = True
-                current_review = True
 
             instance_attributes.extend(
                 [
@@ -643,6 +636,14 @@ OTIO file.
                         }
                     )
 
+                    # add reviewable source to plate if shot has it
+                    if sub_instance_data.get("reviewableSource"):
+                        sub_instance_data["creator_attributes"].update({
+                            "reviewableSource": sub_instance_data[
+                                "reviewableSource"],
+                            "review": True,
+                        })
+
                 instance = creator.create(sub_instance_data, None)
                 instance.transient_data["track_item"] = track_item
                 self._add_instance_to_context(instance)
@@ -710,7 +711,7 @@ OTIO file.
             "tag.handleStart": ("handleStart", int),
             "tag.handleEnd": ("handleEnd", int),
             "tag.folderPath": ("folderPath", str),
-            "tag.reviewTrack": ("reviewTrack", str),
+            "tag.reviewTrack": ("reviewableSource", str),
             "tag.variant": ("variant", str),
             "tag.workfileFrameStart": ("workfileFrameStart", int),
             "tag.sourceResolution": ("sourceResolution", bool),
@@ -816,8 +817,7 @@ OTIO file.
                     ),
                     "creator_attributes": {
                         "parentInstance": parenting_data["label"],
-                        "reviewableSource": sub_instance_data[
-                            "reviewableSource"],
+                        "reviewableSource": sub_instance_data["reviewableSource"],
                         "review": False,
                     },
                 }

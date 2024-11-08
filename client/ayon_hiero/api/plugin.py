@@ -768,9 +768,6 @@ class PublishClip:
         )
         self.tag_data["folderPath"] = folder_path
 
-        if self.tag_data["heroTrack"] and self.reviewable_source:
-            self.tag_data.update({"reviewableSource": self.reviewable_source})
-
         return self.track_item
 
     def _populate_track_item_default_data(self):
@@ -811,7 +808,8 @@ class PublishClip:
         self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
-        self.review_source = get("reviewableSource") or self.review_source_default
+        self.review_source = (
+            get("reviewableSource") or self.review_source_default)
         self.audio = get("audio") or False
 
         self.hierarchy_data = {
@@ -858,10 +856,15 @@ class PublishClip:
 
             # adding tag metadata from ui
             for _key, _value in self.pre_create_data.items():
+                if (
+                    _key == "reviewableSource"
+                    and "reviewTrack" in self.tag_keys
+                ):
+                    self.tag_data.pop("reviewTrack")
+                    self.tag_data["reviewableSource"] = _value
                 if _key in self.tag_keys:
-                    # backward compatibility for reviewTrack (2024.11.07)
-                    if "reviewTrack" in _key:
-                        self.tag_data["reviewableSource"] = _value
+                    # backward compatibility for reviewableSource (2024.11.08)
+
                     self.tag_data[_key] = _value
 
             # driving layer is set as positive match
@@ -932,6 +935,25 @@ class PublishClip:
             self.tag_data["reviewTrack"] = self.reviewable_source
         else:
             self.tag_data.update({"reviewTrack": None})
+
+        # add only review related data if reviewable source is set
+        if self.reviewable_source:
+            review_switch = True
+            reviewable_source = self.reviewable_source
+            #
+            if self.vertical_sync and not hero_track:
+                review_switch = False
+                reviewable_source = False
+
+            if review_switch:
+                self.tag_data["review"] = True
+            else:
+                self.tag_data.pop("review", None)
+
+            if reviewable_source:
+                self.tag_data["reviewableSource"] = reviewable_source
+            else:
+                self.tag_data.pop("reviewableSource", None)
 
     def _solve_tag_hierarchy_data(self, hierarchy_formatting_data):
         """ Solve tag data from hierarchy data and templates. """
