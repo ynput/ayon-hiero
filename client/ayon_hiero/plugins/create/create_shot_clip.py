@@ -201,7 +201,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 for attr_def in attr_defs
                 if attr_def.key == "reviewableSource"
             )
-            reviewable_source.visible = review_value
+            reviewable_source.disabled = not review_value
 
             instance.set_create_attr_defs(attr_defs)
 
@@ -238,9 +238,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                     EnumDef(
                         "reviewableSource",
                         label="Reviewable Source",
-                        tooltip=(
-                            "Selecting source for reviewable files."
-                        ),
+                        tooltip=("Selecting source for reviewable files."),
                         items=(
                             [
                                 {
@@ -250,7 +248,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                             ]
                             + gui_tracks
                         ),
-                        visible=current_review,
+                        disabled=not current_review,
                     ),
                 ]
             )
