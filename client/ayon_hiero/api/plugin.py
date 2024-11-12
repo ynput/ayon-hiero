@@ -824,14 +824,12 @@ class PublishClip:
 
         # build product name from layer name
         if self.base_product_variant == "<track_name>":
-            self.base_product_variant = self.track_name
             self.variant = self.track_name
         else:
             self.variant = self.base_product_variant
 
         # create product for publishing
-        self.product_name = (
-            f"{self.product_type}{self.base_product_variant.capitalize()}")
+        self.product_name = f"{self.product_type}{self.variant.capitalize()}"
 
     def _replace_hash_to_expression(self, name, text):
         """ Replace hash with number in correct padding. """
@@ -940,7 +938,7 @@ class PublishClip:
                 clip_product_name = self.product_name
 
                 # in case track name and product name is the same then add
-                if self.base_product_variant == self.track_name:
+                if self.variant == self.track_name:
                     clip_product_name = self.product_name
 
                 # add track index in case duplicity of names in hero data
