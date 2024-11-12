@@ -174,11 +174,43 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
     """ Base clip product creator.
     """
 
-    def get_instance_attr_defs(self):
+    def register_callbacks(self):
+        self.create_context.add_value_changed_callback(self._on_value_change)
+
+    def _on_value_change(self, event):
+        for item in event["changes"]:
+            instance = item["instance"]
+            if (
+                instance is None
+                or instance.creator_identifier != self.identifier
+            ):
+                continue
+
+            changes = item["changes"].get("creator_attributes", {})
+
+            attr_defs = instance.creator_attributes.attr_defs
+
+            if "review" not in changes:
+                continue
+
+            review_value = changes["review"]
+            reviewable_source = next(
+                attr_def
+                for attr_def in attr_defs
+                if attr_def.key == "reviewableSource"
+            )
+            reviewable_source.disabled = not review_value
+
+            instance.set_create_attr_defs(attr_defs)
+
+    def get_attr_defs_for_instance(self, instance):
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -190,23 +222,34 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
         if self.product_type == "plate":
-            instance_attributes.extend([
-                BoolDef(
-                    "vSyncOn",
-                    label="Enable Vertical Sync",
-                    tooltip="Switch on if you want clips above "
-                            "each other to share its attributes",
-                    default=True,
-                ),
-                EnumDef(
-                    "vSyncTrack",
-                    label="Hero Track",
-                    tooltip="Select driving track name which should "
-                            "be mastering all others",
-                    items=gui_tracks or ["<nothing to select>"],
-                ),
-            ])
+            # Review track visibility
+            current_review = instance.creator_attributes.get("review", False)
 
+            instance_attributes.extend(
+                [
+                    BoolDef(
+                        "review",
+                        label="Review",
+                        tooltip="Switch to reviewable instance",
+                        default=False,
+                    ),
+                    EnumDef(
+                        "reviewableSource",
+                        label="Reviewable Source",
+                        tooltip=("Selecting source for reviewable files."),
+                        items=(
+                            [
+                                {
+                                    "value": "clip_media",
+                                    "label": "[ Clip's media ]",
+                                },
+                            ]
+                            + gui_tracks
+                        ),
+                        disabled=not current_review,
+                    ),
+                ]
+            )
         return instance_attributes
 
 
@@ -265,7 +308,10 @@ OTIO file.
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -373,9 +419,12 @@ OTIO file.
                 label="Hero track",
                 tooltip="Select driving track name which should "
                         "be mastering all others",
-                items=gui_tracks or ["<nothing to select>"],
+                items=(
+                    gui_tracks or [
+                        {"value": None, "label": "< nothing to select> "}
+                        ]
+                ),
             ),
-
             # publishSettings
             UILabelDef(
                 label=header_label("Publish Settings")
@@ -395,11 +444,15 @@ OTIO file.
                 items=['plate', 'take'],
             ),
             EnumDef(
-                "reviewTrack",
-                label="Use Review Track",
+                "reviewableSource",
+                label="Reviewable Source",
                 tooltip="Generate preview videos on fly, if "
-                        "'< none >' is defined nothing will be generated.",
-                items=['< none >'] + gui_tracks,
+                "'< none >' is defined nothing will be generated.",
+                items=[
+                    {"value": None, "label": "< none >"},
+                    {"value": "clip_media", "label": "[ Clip's media ]"},
+                ]
+                + gui_tracks,
             ),
             BoolDef(
                 "export_audio",
@@ -410,10 +463,9 @@ OTIO file.
             BoolDef(
                 "sourceResolution",
                 label="Source resolution",
-                tooltip="Is resloution taken from timeline or source?",
+                tooltip="Is resolution taken from timeline or source?",
                 default=False,
             ),
-
             # shotAttr
             UILabelDef(
                 label=header_label("Shot Attributes"),
@@ -579,6 +631,14 @@ OTIO file.
                         }
                     })
 
+                    # add reviewable source to plate if shot has it
+                    if sub_instance_data.get("reviewableSource"):
+                        sub_instance_data["creator_attributes"].update({
+                            "reviewableSource": sub_instance_data[
+                                "reviewableSource"],
+                            "review": True,
+                        })
+
                 instance = creator.create(sub_instance_data, None)
                 instance.transient_data["track_item"] = track_item
                 self._add_instance_to_context(instance)
@@ -652,7 +712,7 @@ OTIO file.
             "tag.handleStart": ("handleStart", int),
             "tag.handleEnd": ("handleEnd", int),
             "tag.folderPath": ("folderPath", str),
-            "tag.reviewTrack": ("reviewTrack", str),
+            "tag.reviewTrack": ("reviewableSource", str),
             "tag.variant": ("variant", str),
             "tag.workfileFrameStart": ("workfileFrameStart", int),
             "tag.sourceResolution": ("sourceResolution", bool),
@@ -759,6 +819,9 @@ OTIO file.
                     ),
                     "creator_attributes": {
                         "parentInstance": parenting_data["label"],
+                        "reviewableSource": sub_instance_data[
+                            "reviewableSource"],
+                        "review": False,
                     }
                 }
             )
