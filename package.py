@@ -6,6 +6,6 @@ client_dir = "ayon_hiero"
 
 ayon_server_version = ">=1.1.2"
 ayon_required_addons = {
-    "core": ">0.3.2",
+    "core": ">1.0.7",
 }
 ayon_compatible_addons = {}
