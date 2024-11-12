@@ -65,7 +65,7 @@ class ExtractClipEffects(publish.Extractor):
 
         # add to data of representation
         version_data.update({
-            "colorspace": item.sourceMediaColourTransform(),
+            "colorSpace": item.sourceMediaColourTransform(),
             "colorspaceScript": instance.context.data["colorspace"],
             "families": [product_type, "plate"],
             # TODO find out if 'subset' is needed (and 'productName')
