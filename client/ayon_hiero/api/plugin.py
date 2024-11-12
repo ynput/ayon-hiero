@@ -936,6 +936,7 @@ class PublishClip:
                     f"{new_clip_name}{data_product_name}", [])
 
                 clip_product_name = self.product_name
+                variant = self.variant
 
                 # in case track name and product name is the same then add
                 if self.variant == self.track_name:
@@ -947,15 +948,17 @@ class PublishClip:
                 if clip_product_name in data_product_name:
                     clip_product_name = (
                         f"{clip_product_name}{self.track_index}")
+                    variant = f"{variant}{self.track_index}"
 
                 # in case track clip product name had been already used
                 # then add product name with clip index
                 if clip_product_name in used_names_list:
                     clip_product_name = (
                         f"{clip_product_name}{self.rename_index}")
+                    variant = f"{variant}{self.rename_index}"
 
                 _distrib_data["productName"] = clip_product_name
-                _distrib_data["variant"] = self.variant
+                _distrib_data["variant"] = variant
                 # assign data to return hierarchy data to tag
                 tag_instance_data = _distrib_data
 
