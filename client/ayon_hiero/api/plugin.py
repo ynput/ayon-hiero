@@ -856,6 +856,7 @@ class PublishClip:
 
             # adding tag metadata from ui
             for _key, _value in self.pre_create_data.items():
+                # backward compatibility for reviewableSource (2024.11.08)
                 if (
                     _key == "reviewableSource"
                     and "reviewTrack" in self.tag_keys
@@ -863,8 +864,6 @@ class PublishClip:
                     self.tag_data.pop("reviewTrack")
                     self.tag_data["reviewableSource"] = _value
                 if _key in self.tag_keys:
-                    # backward compatibility for reviewableSource (2024.11.08)
-
                     self.tag_data[_key] = _value
 
             # driving layer is set as positive match
