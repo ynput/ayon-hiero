@@ -761,7 +761,7 @@ OTIO file.
                         "parentInstance": parenting_data["label"],
                     }
                 }
-            })
+            )
 
             instance = creator.create(sub_instance_data, None)
             instance.transient_data["track_item"] = track_item
