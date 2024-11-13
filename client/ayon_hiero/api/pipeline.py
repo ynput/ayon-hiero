@@ -348,20 +348,3 @@ def reload_config():
         except Exception as e:
             log.warning("Cannot reload module: {}".format(e))
             importlib.reload(module)
-
-
-def on_pyblish_instance_toggled(instance, old_value, new_value):
-    """Toggle node passthrough states on instance toggles."""
-
-    log.info("instance toggle: {}, old_value: {}, new_value:{} ".format(
-        instance, old_value, new_value))
-
-    from ayon_hiero.api import (
-        get_trackitem_ayon_tag,
-        set_publish_attribute
-    )
-
-    # Whether instances should be passthrough based on new value
-    track_item = instance.data["item"]
-    tag = get_trackitem_ayon_tag(track_item)
-    set_publish_attribute(tag, new_value)

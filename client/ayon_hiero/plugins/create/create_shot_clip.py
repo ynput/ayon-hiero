@@ -101,8 +101,6 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
         """
         instance_data.update({
             "newHierarchyIntegration": True,
-            # Backwards compatible (Deprecated since 24/06/06)
-            "newAssetPublishing": True,
         })
 
         new_instance = CreatedInstance(
