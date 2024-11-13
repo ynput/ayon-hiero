@@ -1,7 +1,7 @@
 import os
-from pprint import pformat
 import re
 import uuid
+from copy import deepcopy
 
 import hiero
 
@@ -418,8 +418,6 @@ class ClipLoader:
         # inject folder data to representation dict
         folder_entity = self.context["folder"]
         self.data["folderAttributes"] = folder_entity["attrib"]
-        log.info("__init__ self.data: `{}`".format(pformat(self.data)))
-        log.info("__init__ options: `{}`".format(pformat(options)))
 
         # add active components to class
         if self.new_sequence:
@@ -657,6 +655,10 @@ class PublishClip:
     Returns:
         hiero.core.TrackItem: hiero track item object with AYON tag
     """
+    vertical_clip_match = {}
+    vertical_clip_used = {}
+    tag_data = {}
+
     types = {
         "shot": "shot",
         "folder": "folder",
@@ -672,8 +674,8 @@ class PublishClip:
     rename_default = False
     hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
-    product_name_default = "<track_name>"
-    review_track_default = "< none >"
+    base_product_variant_default = "<track_name>"
+    review_source_default = None
     product_type_default = "plate"
     count_from_default = 10
     count_steps_default = 10
@@ -689,8 +691,15 @@ class PublishClip:
         # publish settings
         "audio", "sourceResolution",
         # shot attributes
-        "workfileFrameStart", "handleStart", "handleEnd"
+        "workfileFrameStart", "handleStart", "handleEnd",
+        # instance attributes data
+        "reviewableSource",
     }
+
+    @classmethod
+    def restore_all_caches(cls):
+        cls.vertical_clip_match = {}
+        cls.vertical_clip_used = {}
 
     def __init__(
             self,
@@ -700,8 +709,6 @@ class PublishClip:
             rename_index=0):
 
         self.rename_index = rename_index
-        self.vertical_clip_match = dict()
-        self.tag_data = dict()
 
         # adding ui inputs if any
         self.pre_create_data = pre_create_data or {}
@@ -724,9 +731,6 @@ class PublishClip:
         if data:
             self.tag_data.update(data)
 
-        # add publish attribute to tag data
-        self.tag_data.update({"publish": True})
-
         # populate default data before we get other attributes
         self._populate_track_item_default_data()
 
@@ -743,8 +747,9 @@ class PublishClip:
 
         # if track name is in review track name and also if driving track name
         # is not in review track name: skip tag creation
-        if (self.track_name in self.review_layer) and (
-                self.driving_layer not in self.review_layer):
+        if (self.track_name in self.reviewable_source) and (
+            self.driving_layer not in self.reviewable_source
+        ):
             return
 
         # deal with clip name
@@ -764,11 +769,6 @@ class PublishClip:
             self.tag_data["folderName"]
         )
         self.tag_data["folderPath"] = folder_path
-
-        if self.tag_data["heroTrack"] and self.review_layer:
-            self.tag_data.update({"reviewTrack": self.review_layer})
-        else:
-            self.tag_data.update({"reviewTrack": None})
 
         return self.track_item
 
@@ -795,22 +795,25 @@ class PublishClip:
         log.debug(
             "____ self.shot_num: {}".format(self.shot_num))
 
-       # publisher ui attribute inputs or default values if gui was not used
+        # publisher ui attribute inputs or default values if gui was not used
         def get(key):
             """Shorthand access for code readability"""
             return self.pre_create_data.get(key)
 
         # ui_inputs data or default values if gui was not used
-        self.rename = self.pre_create_data.get("clipRename", self.rename_default)
+        self.rename = self.pre_create_data.get(
+            "clipRename", self.rename_default)
         self.clip_name = get("clipName") or self.clip_name_default
         self.hierarchy = get("hierarchy") or self.hierarchy_default
         self.count_from = get("countFrom") or self.count_from_default
         self.count_steps = get("countSteps") or self.count_steps_default
-        self.product_name = get("productName") or self.product_name_default
+        self.base_product_variant = (
+            get("clipVariant") or self.base_product_variant_default)
         self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
-        self.review_track = get("reviewTrack") or self.review_track_default
+        self.review_source = (
+            get("reviewableSource") or self.review_source_default)
         self.audio = get("audio") or False
 
         self.hierarchy_data = {
@@ -819,13 +822,13 @@ class PublishClip:
         }
 
         # build product name from layer name
-        if self.product_name == "<track_name>":
-            self.product_name = self.track_name
+        if self.base_product_variant == "<track_name>":
+            self.variant = self.track_name
+        else:
+            self.variant = self.base_product_variant
 
         # create product for publishing
-        self.product_name = (
-            self.product_type + self.product_name.capitalize()
-        )
+        self.product_name = f"{self.product_type}{self.variant.capitalize()}"
 
     def _replace_hash_to_expression(self, name, text):
         """ Replace hash with number in correct padding. """
@@ -841,32 +844,45 @@ class PublishClip:
         """
         # define vertical sync attributes
         hero_track = True
-        self.review_layer = ""
-        if self.vertical_sync:
+        self.reviewable_source = ""
+        if (
+            self.vertical_sync
+            and self.track_name != self.driving_layer
+        ):
             # check if track name is not in driving layer
-            if self.track_name not in self.driving_layer:
-                # if it is not then define vertical sync as None
-                hero_track = False
+            # if it is not then define vertical sync as None
+            hero_track = False
 
         # increasing steps by index of rename iteration
         self.count_steps *= self.rename_index
 
-        hierarchy_formatting_data = dict()
+        hierarchy_formatting_data = {}
+        hierarchy_data = deepcopy(self.hierarchy_data)
         _data = self.track_item_default_data.copy()
+
+        # in case we are running creators headless default
+        # precreate data values are used
         if self.pre_create_data:
 
             # adding tag metadata from ui
             for _key, _value in self.pre_create_data.items():
+                # backward compatibility for reviewableSource (2024.11.08)
+                if (
+                    _key == "reviewableSource"
+                    and "reviewTrack" in self.tag_keys
+                ):
+                    self.tag_data.pop("reviewTrack")
+                    self.tag_data["reviewableSource"] = _value
                 if _key in self.tag_keys:
                     self.tag_data[_key] = _value
 
             # driving layer is set as positive match
             if hero_track or self.vertical_sync:
                 # mark review layer
-                if self.review_track and (
-                        self.review_track not in self.review_track_default):
+                if self.review_source and (
+                        self.review_source != self.review_source_default):
                     # if review layer is defined and not the same as default
-                    self.review_layer = self.review_track
+                    self.reviewable_source = self.review_source
                 # shot num calculate
                 if self.rename_index == 0:
                     self.shot_num = self.count_from
@@ -877,59 +893,117 @@ class PublishClip:
             _data.update({"shot": self.shot_num})
 
             # solve # in test to pythonic expression
-            for _key, _value in self.hierarchy_data.items():
+            for _key, _value in hierarchy_data.items():
                 if "#" not in _value:
                     continue
-                self.hierarchy_data[_key] = self._replace_hash_to_expression(
-                    _key, _value
-                )
+                hierarchy_data[_key] = self._replace_hash_to_expression(
+                    _key, _value)
 
             # fill up pythonic expresisons in hierarchy data
-            for _key, _value in self.hierarchy_data.items():
-                hierarchy_formatting_data[_key] = _value.format(**_data)
+            for _key, _value in hierarchy_data.items():
+                formatted_value = _value.format(**_data)
+                hierarchy_formatting_data[_key] = formatted_value
+                self.tag_data[_key] = formatted_value
         else:
             # if no gui mode then just pass default data
-            hierarchy_formatting_data = self.hierarchy_data
+            hierarchy_formatting_data = hierarchy_data
 
-        tag_hierarchy_data = self._solve_tag_hierarchy_data(
+        tag_instance_data = self._solve_tag_instance_data(
             hierarchy_formatting_data
         )
 
-        tag_hierarchy_data.update({"heroTrack": True})
+        tag_instance_data.update({"heroTrack": True})
         if hero_track and self.vertical_sync:
-            self.vertical_clip_match.update({
-                (self.clip_in, self.clip_out): tag_hierarchy_data
-            })
+            self.vertical_clip_match.update(
+                {(self.clip_in, self.clip_out): tag_instance_data}
+            )
 
         if not hero_track and self.vertical_sync:
             # driving layer is set as negative match
-            for (_in, _out), hero_data in self.vertical_clip_match.items():
-                hero_data.update({"heroTrack": False})
-                if _in == self.clip_in and _out == self.clip_out:
-                    data_product_name = hero_data["productName"]
-                    # add track index in case duplicity of names in hero data
-                    if self.product_name in data_product_name:
-                        hero_data["productName"] = self.product_name + str(
-                            self.track_index)
-                    # in case track name and product name is the same then add
-                    if self.product_name == self.track_name:
-                        hero_data["productName"] = self.product_name
-                    # assign data to return hierarchy data to tag
-                    tag_hierarchy_data = hero_data
+            for (hero_in, hero_out), hero_data in self.vertical_clip_match.items():  # noqa
+                """Iterate over all clips in vertical sync match
+
+                If clip frame range is outside of hero clip frame range
+                then skip this clip and do not add to hierarchical shared
+                metadata to them.
+                """
+                if self.clip_in < hero_in or self.clip_out > hero_out:
+                    continue
+
+                _distrib_data = deepcopy(hero_data)
+                _distrib_data["heroTrack"] = False
+
+                # form used clip unique key
+                data_product_name = hero_data["productName"]
+                new_clip_name = hero_data["newClipName"]
+
+                # get used names list for duplicity check
+                used_names_list = self.vertical_clip_used.setdefault(
+                    f"{new_clip_name}{data_product_name}", [])
+
+                clip_product_name = self.product_name
+                variant = self.variant
+
+                # in case track name and product name is the same then add
+                if self.variant == self.track_name:
+                    clip_product_name = self.product_name
+
+                # add track index in case duplicity of names in hero data
+                # INFO: this is for case where hero clip product name
+                #    is the same as current clip product name
+                if clip_product_name in data_product_name:
+                    clip_product_name = (
+                        f"{clip_product_name}{self.track_index}")
+                    variant = f"{variant}{self.track_index}"
+
+                # in case track clip product name had been already used
+                # then add product name with clip index
+                if clip_product_name in used_names_list:
+                    clip_product_name = (
+                        f"{clip_product_name}{self.rename_index}")
+                    variant = f"{variant}{self.rename_index}"
+
+                _distrib_data["productName"] = clip_product_name
+                _distrib_data["variant"] = variant
+                # assign data to return hierarchy data to tag
+                tag_instance_data = _distrib_data
+
+                # add used product name to used list to avoid duplicity
+                used_names_list.append(clip_product_name)
+                break
 
         # add data to return data dict
-        self.tag_data.update(tag_hierarchy_data)
+        self.tag_data.update(tag_instance_data)
 
         # add uuid to tag data
         self.tag_data["uuid"] = str(uuid.uuid4())
 
         # add review track only to hero track
-        if hero_track and self.review_layer:
-            self.tag_data["reviewTrack"] = self.review_layer
+        if hero_track and self.reviewable_source:
+            self.tag_data["reviewTrack"] = self.reviewable_source
         else:
             self.tag_data.update({"reviewTrack": None})
 
-    def _solve_tag_hierarchy_data(self, hierarchy_formatting_data):
+        # add only review related data if reviewable source is set
+        if self.reviewable_source:
+            review_switch = True
+            reviewable_source = self.reviewable_source
+            #
+            if self.vertical_sync and not hero_track:
+                review_switch = False
+                reviewable_source = False
+
+            if review_switch:
+                self.tag_data["review"] = True
+            else:
+                self.tag_data.pop("review", None)
+
+            if reviewable_source:
+                self.tag_data["reviewableSource"] = reviewable_source
+            else:
+                self.tag_data.pop("reviewableSource", None)
+
+    def _solve_tag_instance_data(self, hierarchy_formatting_data):
         """ Solve tag data from hierarchy data and templates. """
         # fill up clip name and hierarchy keys
         hierarchy_filled = self.hierarchy.format(**hierarchy_formatting_data)
@@ -944,7 +1018,8 @@ class PublishClip:
             "parents": self.parents,
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
-            "productType": self.product_type
+            "productType": self.product_type,
+            "variant": self.variant,
         }
 
     def _convert_to_entity(self, src_type, template):

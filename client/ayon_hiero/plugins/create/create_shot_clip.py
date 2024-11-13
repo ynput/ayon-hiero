@@ -100,8 +100,6 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             CreatedInstance: The created instance object for the new shot.
         """
         instance_data.update({
-            "productName": f"{self.product_type}{instance_data['variant']}",
-            "productType": self.product_type,
             "newHierarchyIntegration": True,
         })
 
@@ -174,11 +172,43 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
     """ Base clip product creator.
     """
 
-    def get_instance_attr_defs(self):
+    def register_callbacks(self):
+        self.create_context.add_value_changed_callback(self._on_value_change)
+
+    def _on_value_change(self, event):
+        for item in event["changes"]:
+            instance = item["instance"]
+            if (
+                instance is None
+                or instance.creator_identifier != self.identifier
+            ):
+                continue
+
+            changes = item["changes"].get("creator_attributes", {})
+
+            attr_defs = instance.creator_attributes.attr_defs
+
+            if "review" not in changes:
+                continue
+
+            review_value = changes["review"]
+            reviewable_source = next(
+                attr_def
+                for attr_def in attr_defs
+                if attr_def.key == "reviewableSource"
+            )
+            reviewable_source.disabled = not review_value
+
+            instance.set_create_attr_defs(attr_defs)
+
+    def get_attr_defs_for_instance(self, instance):
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -190,23 +220,34 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
         if self.product_type == "plate":
-            instance_attributes.extend([
-                BoolDef(
-                    "vSyncOn",
-                    label="Enable Vertical Sync",
-                    tooltip="Switch on if you want clips above "
-                            "each other to share its attributes",
-                    default=True,
-                ),
-                EnumDef(
-                    "vSyncTrack",
-                    label="Hero Track",
-                    tooltip="Select driving track name which should "
-                            "be mastering all others",
-                    items=gui_tracks or ["<nothing to select>"],
-                ),
-            ])
+            # Review track visibility
+            current_review = instance.creator_attributes.get("review", False)
 
+            instance_attributes.extend(
+                [
+                    BoolDef(
+                        "review",
+                        label="Review",
+                        tooltip="Switch to reviewable instance",
+                        default=False,
+                    ),
+                    EnumDef(
+                        "reviewableSource",
+                        label="Reviewable Source",
+                        tooltip=("Selecting source for reviewable files."),
+                        items=(
+                            [
+                                {
+                                    "value": "clip_media",
+                                    "label": "[ Clip's media ]",
+                                },
+                            ]
+                            + gui_tracks
+                        ),
+                        disabled=not current_review,
+                    ),
+                ]
+            )
         return instance_attributes
 
 
@@ -225,12 +266,6 @@ class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
         Return:
             CreatedInstance: The created instance object for the new shot.
         """
-        if instance_data.get("clip_variant") == "<track_name>":
-            instance_data["variant"] = instance_data["hierarchyData"]["track"]
-
-        else:
-            instance_data["variant"] = instance_data["clip_variant"]
-
         return super().create(instance_data, None)
 
 
@@ -257,6 +292,8 @@ OTIO file.
 """
     create_allow_thumbnail = False
 
+    shot_instances = {}
+
     def get_pre_create_attr_defs(self):
 
         def header_label(text):
@@ -269,7 +306,10 @@ OTIO file.
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
-            gui_tracks = [tr.name() for tr in current_sequence.videoTracks()]
+            gui_tracks = [
+                {"value": tr.name(), "label": f"Track: {tr.name()}"}
+                for tr in current_sequence.videoTracks()
+            ]
         else:
             gui_tracks = []
 
@@ -377,15 +417,18 @@ OTIO file.
                 label="Hero track",
                 tooltip="Select driving track name which should "
                         "be mastering all others",
-                items=gui_tracks or ["<nothing to select>"],
+                items=(
+                    gui_tracks or [
+                        {"value": None, "label": "< nothing to select> "}
+                        ]
+                ),
             ),
-
             # publishSettings
             UILabelDef(
                 label=header_label("Publish Settings")
             ),
             EnumDef(
-                "clip_variant",
+                "clipVariant",
                 label="Product Variant",
                 tooltip="Chose variant which will be then used for "
                         "product name, if <track_name> "
@@ -399,11 +442,15 @@ OTIO file.
                 items=['plate', 'take'],
             ),
             EnumDef(
-                "reviewTrack",
-                label="Use Review Track",
+                "reviewableSource",
+                label="Reviewable Source",
                 tooltip="Generate preview videos on fly, if "
-                        "'< none >' is defined nothing will be generated.",
-                items=['< none >'] + gui_tracks,
+                "'< none >' is defined nothing will be generated.",
+                items=[
+                    {"value": None, "label": "< none >"},
+                    {"value": "clip_media", "label": "[ Clip's media ]"},
+                ]
+                + gui_tracks,
             ),
             BoolDef(
                 "export_audio",
@@ -414,10 +461,9 @@ OTIO file.
             BoolDef(
                 "sourceResolution",
                 label="Source resolution",
-                tooltip="Is resloution taken from timeline or source?",
+                tooltip="Is resolution taken from timeline or source?",
                 default=False,
             ),
-
             # shotAttr
             UILabelDef(
                 label=header_label("Shot Attributes"),
@@ -463,7 +509,6 @@ OTIO file.
                 "timeline in order to export audio."
             )
 
-        instance_data["clip_variant"] = pre_create_data["clip_variant"]
         instance_data["task"] = None
 
         # sort selected trackItems by
@@ -484,20 +529,19 @@ OTIO file.
             "io.ayon.creators.hiero.plate": True,
             "io.ayon.creators.hiero.audio": pre_create_data.get("export_audio", False),
         }
-        enabled_creators = tuple(cre for cre, enabled in all_creators.items() if enabled)
 
         instances = []
-
         for idx, track_item in enumerate(sorted_selected_track_items):
-
-            instance_data["clip_index"] = track_item.guid()
+            _instance_data = copy.deepcopy(instance_data)
+            _instance_data["clip_index"] = track_item.guid()
 
             # convert track item to timeline media pool item
             publish_clip = plugin.PublishClip(
                 track_item,
                 pre_create_data=pre_create_data,
                 rename_index=idx,
-                data=instance_data)
+                data=_instance_data,
+            )
 
             track_item = publish_clip.convert()
             if track_item is None:
@@ -509,7 +553,7 @@ OTIO file.
                 "Processing track item data: {} (index: {})".format(
                     track_item, idx)
             )
-            instance_data.update(publish_clip.tag_data)
+            _instance_data.update(publish_clip.tag_data)
 
             # Delete any existing instances previously generated for the clip.
             prev_tag = lib.get_trackitem_ayon_tag(track_item)
@@ -525,11 +569,19 @@ OTIO file.
                     creator.remove_instances(prev_instances)
 
             # Create new product(s) instances.
-            clip_instances = {}
+            shot_folder_path = _instance_data["folderPath"]
+            shot_instances = self.shot_instances.setdefault(
+                shot_folder_path, {})
             shot_creator_id = "io.ayon.creators.hiero.shot"
+            all_creators["io.ayon.creators.hiero.shot"] = _instance_data.get(
+                "heroTrack", False)
+            enabled_creators = tuple(
+                cre for cre, enabled in all_creators.items() if enabled
+            )
+            clip_instances = {}
             for creator_id in enabled_creators:
                 creator = self.create_context.creators[creator_id]
-                sub_instance_data = copy.deepcopy(instance_data)
+                sub_instance_data = copy.deepcopy(_instance_data)
                 shot_folder_path = sub_instance_data["folderPath"]
 
                 # Shot creation
@@ -537,46 +589,60 @@ OTIO file.
                     track_item_duration = track_item.duration()
                     workfileFrameStart = \
                         sub_instance_data["workfileFrameStart"]
-                    sub_instance_data.update({
-                        "creator_attributes": {
-                            "workfileFrameStart": \
-                                sub_instance_data["workfileFrameStart"],
-                            "handleStart": sub_instance_data["handleStart"],
-                            "handleEnd": sub_instance_data["handleEnd"],
-                            "frameStart": workfileFrameStart,
-                            "frameEnd": (workfileFrameStart +
-                                track_item_duration),
-                            "clipIn": track_item.timelineIn(),
-                            "clipOut": track_item.timelineOut(),
-                            "clipDuration": track_item_duration,
-                            "sourceIn": track_item.sourceIn(),
-                            "sourceOut": track_item.sourceOut(),
-                        },
-                        "label": (
-                            f"{shot_folder_path} shot"
-                        ),
-                    })
+
+                    sub_instance_data.update(
+                        {
+                            "variant": "main",
+                            "productType": "shot",
+                            "productName": "shotMain",
+                            "creator_attributes": {
+                                "workfileFrameStart": sub_instance_data[
+                                    "workfileFrameStart"
+                                ],
+                                "handleStart": sub_instance_data["handleStart"],
+                                "handleEnd": sub_instance_data["handleEnd"],
+                                "frameStart": workfileFrameStart,
+                                "frameEnd": (workfileFrameStart + track_item_duration),
+                                "clipIn": track_item.timelineIn(),
+                                "clipOut": track_item.timelineOut(),
+                                "clipDuration": track_item_duration,
+                                "sourceIn": track_item.sourceIn(),
+                                "sourceOut": track_item.sourceOut(),
+                            },
+                            "label": (f"{sub_instance_data['folderPath']} shotMain"),
+                        }
+                    )
 
                 # Plate, Audio
                 # insert parent instance data to allow
                 # metadata recollection as publish time.
                 else:
-                    parenting_data = clip_instances[shot_creator_id]
+                    parenting_data = shot_instances[shot_creator_id]
                     sub_instance_data.update({
                         "parent_instance_id": parenting_data["instance_id"],
                         "label": (
-                            f"{shot_folder_path} "
-                            f"{creator.product_type}"
+                            f"{sub_instance_data['folderPath']} "
+                            f"{sub_instance_data['productName']}"
                         ),
                         "creator_attributes": {
                             "parentInstance": parenting_data["label"],
                         }
                     })
 
+                    # add reviewable source to plate if shot has it
+                    if sub_instance_data.get("reviewableSource"):
+                        sub_instance_data["creator_attributes"].update({
+                            "reviewableSource": sub_instance_data[
+                                "reviewableSource"],
+                            "review": True,
+                        })
+
                 instance = creator.create(sub_instance_data, None)
                 instance.transient_data["track_item"] = track_item
                 self._add_instance_to_context(instance)
-                clip_instances[creator_id] = instance.data_to_store()
+                instance_data_to_store = instance.data_to_store()
+                shot_instances[creator_id] = instance_data_to_store
+                clip_instances[creator_id] = instance_data_to_store
 
             lib.imprint(
                 track_item,
@@ -586,6 +652,10 @@ OTIO file.
                 }
             )
             instances.append(instance)
+
+        # restore all caches
+        plugin.PublishClip.restore_all_caches()
+        self.shot_instances = {}
 
         return instances
 
@@ -640,7 +710,7 @@ OTIO file.
             "tag.handleStart": ("handleStart", int),
             "tag.handleEnd": ("handleEnd", int),
             "tag.folderPath": ("folderPath", str),
-            "tag.reviewTrack": ("reviewTrack", str),
+            "tag.reviewTrack": ("reviewableSource", str),
             "tag.variant": ("variant", str),
             "tag.workfileFrameStart": ("workfileFrameStart", int),
             "tag.sourceResolution": ("sourceResolution", bool),
@@ -699,7 +769,9 @@ OTIO file.
         workfileFrameStart = \
             sub_instance_data["workfileFrameStart"]
         sub_instance_data.update({
-            "label": f"{sub_instance_data['folderPath']} shot",
+            "label": (
+                f"{sub_instance_data['folderPath']} "
+                f"{sub_instance_data['productName']}"),
             "variant": "main",
             "creator_attributes": {
                 "workfileFrameStart": workfileFrameStart,
@@ -736,17 +808,21 @@ OTIO file.
         for sub_creator_id in sub_creators:
             sub_instance_data = instance_data.copy()
             creator = self.create_context.creators[sub_creator_id]
-            sub_instance_data.update({
-                "clip_variant": sub_instance_data["variant"],
-                "parent_instance_id": parenting_data["instance_id"],
-                "label": (
-                    f"{sub_instance_data['folderPath']} "
-                    f"{creator.product_type}"
-                ),
-                "creator_attributes": {
-                    "parentInstance": parenting_data["label"],
+            sub_instance_data.update(
+                {
+                    "parent_instance_id": parenting_data["instance_id"],
+                    "label": (
+                        f"{sub_instance_data['folderPath']} "
+                        f"{sub_instance_data['productName']}"
+                    ),
+                    "creator_attributes": {
+                        "parentInstance": parenting_data["label"],
+                        "reviewableSource": sub_instance_data[
+                            "reviewableSource"],
+                        "review": False,
+                    }
                 }
-            })
+            )
 
             instance = creator.create(sub_instance_data, None)
             instance.transient_data["track_item"] = track_item
