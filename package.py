@@ -1,6 +1,6 @@
 name = "hiero"
 title = "Hiero"
-version = "0.3.0+dev"
+version = "0.4.0"
 app_host_name = "hiero"
 client_dir = "ayon_hiero"
 
