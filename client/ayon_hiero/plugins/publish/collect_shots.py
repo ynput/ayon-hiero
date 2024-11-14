@@ -22,7 +22,6 @@ class CollectShot(pyblish.api.InstancePlugin):
         "handleStart",
         "handleEnd",
         "item",
-        "otioClip",
         "resolutionWidth",
         "resolutionHeight",
         "pixelAspect",
