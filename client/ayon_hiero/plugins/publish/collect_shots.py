@@ -60,10 +60,15 @@ class CollectShot(pyblish.api.InstancePlugin):
         if not context.data.get("editorialSharedData"):
             context.data["editorialSharedData"] = {}
 
-        context.data["editorialSharedData"][instance_id] = {
+        edit_shared_data = context.data["editorialSharedData"].setdefault(
+            instance_id, {}
+        )
+        edit_shared_data.update({
             key: value for key, value in instance.data.items()
             if key in cls.SHARED_KEYS
-        }
+        })
+        # also add `shot_clip_index` to shared data for audio instance
+        edit_shared_data["shot_clip_index"] = instance.data["clip_index"]
 
     def process(self, instance):
         """

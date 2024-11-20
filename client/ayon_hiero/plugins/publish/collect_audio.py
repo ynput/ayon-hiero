@@ -28,7 +28,7 @@ class CollectAudio(pyblish.api.InstancePlugin):
         # Clip index has to be taken form hero shot data
         # audio could be shorter but we need to get full length
         otio_clip, _ = utils.get_marker_from_clip_index(
-            otio_timeline, shot_instance_data["clip_index"]
+            otio_timeline, shot_instance_data["shot_clip_index"]
         )
         if not otio_clip:
             raise PublishError(
@@ -36,11 +36,14 @@ class CollectAudio(pyblish.api.InstancePlugin):
 
         instance.data["otioClip"] = otio_clip
 
-        if instance.data.get("reviewTrack") is not None:
-            instance.data["reviewAudio"] = True
-            instance.data.pop("reviewTrack")
+        # solve reviewable options
+        review_switch = instance.data["creator_attributes"].get("review")
 
-        clip_src = instance.data["otioClip"].source_range
+        if review_switch is True:
+            instance.data["reviewAudio"] = True
+            instance.data.pop("review", None)
+
+        clip_src = otio_clip.source_range
         clip_src_in = clip_src.start_time.to_frames()
         clip_src_out = clip_src_in + clip_src.duration.to_frames()
         instance.data.update({
