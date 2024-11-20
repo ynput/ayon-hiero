@@ -219,7 +219,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 disabled=True,
             )
         ]
-        if self.product_type == "plate":
+        if self.product_type in ("plate", "audio"):
             # Review track visibility
             current_review = instance.creator_attributes.get("review", False)
 
@@ -523,11 +523,15 @@ OTIO file.
 
         sorted_selected_track_items.extend(unsorted_selected_track_items)
 
+        shot_creator_id = "io.ayon.creators.hiero.shot"
+        audio_creator_id = "io.ayon.creators.hiero.audio"
+        plate_creator_id = "io.ayon.creators.hiero.plate"
+
         # detect enabled creators for review, plate and audio
         all_creators = {
-            "io.ayon.creators.hiero.shot": True,
-            "io.ayon.creators.hiero.plate": True,
-            "io.ayon.creators.hiero.audio": pre_create_data.get("export_audio", False),
+            shot_creator_id: True,
+            plate_creator_id: True,
+            audio_creator_id: True,
         }
 
         instances = []
@@ -572,9 +576,16 @@ OTIO file.
             shot_folder_path = _instance_data["folderPath"]
             shot_instances = self.shot_instances.setdefault(
                 shot_folder_path, {})
-            shot_creator_id = "io.ayon.creators.hiero.shot"
-            all_creators["io.ayon.creators.hiero.shot"] = _instance_data.get(
+
+            # desable shot creator if heroTrack is not enabled
+            all_creators[shot_creator_id] = _instance_data.get(
                 "heroTrack", False)
+            # desable audio creator if audio is not enabled
+            all_creators[audio_creator_id] = (
+                _instance_data.get("heroTrack", False) and
+                pre_create_data.get("export_audio", False)
+            )
+
             enabled_creators = tuple(
                 cre for cre, enabled in all_creators.items() if enabled
             )
