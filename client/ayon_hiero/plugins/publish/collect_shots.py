@@ -1,6 +1,7 @@
 import json
 import pyblish
 
+from ayon_core.pipeline import PublishError
 from ayon_hiero.api import lib
 from ayon_hiero.api.otio import utils
 
@@ -22,7 +23,6 @@ class CollectShot(pyblish.api.InstancePlugin):
         "handleStart",
         "handleEnd",
         "item",
-        "otioClip",
         "resolutionWidth",
         "resolutionHeight",
         "pixelAspect",
@@ -60,10 +60,15 @@ class CollectShot(pyblish.api.InstancePlugin):
         if not context.data.get("editorialSharedData"):
             context.data["editorialSharedData"] = {}
 
-        context.data["editorialSharedData"][instance_id] = {
+        edit_shared_data = context.data["editorialSharedData"].setdefault(
+            instance_id, {}
+        )
+        edit_shared_data.update({
             key: value for key, value in instance.data.items()
             if key in cls.SHARED_KEYS
-        }
+        })
+        # also add `shot_clip_index` to shared data for audio instance
+        edit_shared_data["shot_clip_index"] = instance.data["clip_index"]
 
     def process(self, instance):
         """
@@ -78,7 +83,8 @@ class CollectShot(pyblish.api.InstancePlugin):
             otio_timeline, instance.data["clip_index"]
         )
         if not otio_clip:
-            raise RuntimeError("Could not retrieve otioClip for shot %r", instance)
+            raise PublishError(
+                f"Could not retrieve otioClip for shot {instance}")
 
         # Compute fps from creator attribute.
         if instance.data['creator_attributes']["fps"] == "from_selection":

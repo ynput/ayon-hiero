@@ -1,5 +1,8 @@
 import pyblish
 
+from ayon_core.pipeline import PublishError
+from ayon_hiero.api.otio import utils
+
 
 class CollectPlate(pyblish.api.InstancePlugin):
     """Collect new plates."""
@@ -15,6 +18,17 @@ class CollectPlate(pyblish.api.InstancePlugin):
             instance (pyblish.Instance): The shot instance to update.
         """
         instance.data["families"].append("clip")
+
+        # Adjust instance data from parent otio timeline.
+        otio_timeline = instance.context.data["otioTimeline"]
+        otio_clip, _ = utils.get_marker_from_clip_index(
+            otio_timeline, instance.data["clip_index"]
+        )
+        if not otio_clip:
+            raise PublishError(
+                f"Could not retrieve otioClip for shot {instance}")
+
+        instance.data["otioClip"] = otio_clip
 
         # solve reviewable options
         review_switch = instance.data["creator_attributes"].get(

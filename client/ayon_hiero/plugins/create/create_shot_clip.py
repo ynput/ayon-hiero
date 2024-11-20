@@ -176,6 +176,9 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
         self.create_context.add_value_changed_callback(self._on_value_change)
 
     def _on_value_change(self, event):
+        if self.product_type != "plate":
+            return
+
         for item in event["changes"]:
             instance = item["instance"]
             if (
@@ -274,6 +277,39 @@ class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     identifier = "io.ayon.creators.hiero.audio"
     product_type = "audio"
     label = "Editorial Audio"
+
+    def get_product_name(
+        self,
+        project_name,
+        folder_entity,
+        task_entity,
+        variant,
+        host_name=None,
+        instance=None,
+        project_entity=None):
+        return f"{self.product_type}Main"
+
+    def get_attr_defs_for_instance(self, instance):
+
+        instance_attributes = [
+            TextDef(
+                "parentInstance",
+                label="Linked to",
+                disabled=True,
+            )
+        ]
+
+        instance_attributes.extend(
+            [
+                BoolDef(
+                    "review",
+                    label="Review",
+                    tooltip="Switch to reviewable instance",
+                    default=False,
+                ),
+            ]
+        )
+        return instance_attributes
 
 
 class CreateShotClip(plugin.HieroCreator):
@@ -523,11 +559,15 @@ OTIO file.
 
         sorted_selected_track_items.extend(unsorted_selected_track_items)
 
+        shot_creator_id = "io.ayon.creators.hiero.shot"
+        audio_creator_id = "io.ayon.creators.hiero.audio"
+        plate_creator_id = "io.ayon.creators.hiero.plate"
+
         # detect enabled creators for review, plate and audio
         all_creators = {
-            "io.ayon.creators.hiero.shot": True,
-            "io.ayon.creators.hiero.plate": True,
-            "io.ayon.creators.hiero.audio": pre_create_data.get("export_audio", False),
+            shot_creator_id: True,
+            plate_creator_id: True,
+            audio_creator_id: True,
         }
 
         instances = []
@@ -572,9 +612,16 @@ OTIO file.
             shot_folder_path = _instance_data["folderPath"]
             shot_instances = self.shot_instances.setdefault(
                 shot_folder_path, {})
-            shot_creator_id = "io.ayon.creators.hiero.shot"
-            all_creators["io.ayon.creators.hiero.shot"] = _instance_data.get(
+
+            # desable shot creator if heroTrack is not enabled
+            all_creators[shot_creator_id] = _instance_data.get(
                 "heroTrack", False)
+            # desable audio creator if audio is not enabled
+            all_creators[audio_creator_id] = (
+                _instance_data.get("heroTrack", False) and
+                pre_create_data.get("export_audio", False)
+            )
+
             enabled_creators = tuple(
                 cre for cre, enabled in all_creators.items() if enabled
             )
@@ -582,6 +629,8 @@ OTIO file.
             for creator_id in enabled_creators:
                 creator = self.create_context.creators[creator_id]
                 sub_instance_data = copy.deepcopy(_instance_data)
+                creator_attributes = sub_instance_data.setdefault(
+                    "creator_attributes", {})
                 shot_folder_path = sub_instance_data["folderPath"]
 
                 # Shot creation
@@ -602,40 +651,60 @@ OTIO file.
                                 "handleStart": sub_instance_data["handleStart"],
                                 "handleEnd": sub_instance_data["handleEnd"],
                                 "frameStart": workfileFrameStart,
-                                "frameEnd": (workfileFrameStart + track_item_duration),
+                                "frameEnd": (
+                                    workfileFrameStart + track_item_duration),
                                 "clipIn": track_item.timelineIn(),
                                 "clipOut": track_item.timelineOut(),
                                 "clipDuration": track_item_duration,
                                 "sourceIn": track_item.sourceIn(),
                                 "sourceOut": track_item.sourceOut(),
                             },
-                            "label": (f"{sub_instance_data['folderPath']} shotMain"),
+                            "label": (
+                                f"{sub_instance_data['folderPath']} shotMain"),
                         }
                     )
 
                 # Plate, Audio
                 # insert parent instance data to allow
                 # metadata recollection as publish time.
-                else:
+                elif creator_id == plate_creator_id:
                     parenting_data = shot_instances[shot_creator_id]
                     sub_instance_data.update({
                         "parent_instance_id": parenting_data["instance_id"],
                         "label": (
                             f"{sub_instance_data['folderPath']} "
                             f"{sub_instance_data['productName']}"
-                        ),
-                        "creator_attributes": {
-                            "parentInstance": parenting_data["label"],
-                        }
+                        )
                     })
-
-                    # add reviewable source to plate if shot has it
+                    creator_attributes["parentInstance"] = parenting_data[
+                        "label"]
                     if sub_instance_data.get("reviewableSource"):
-                        sub_instance_data["creator_attributes"].update({
+                        creator_attributes.update({
+                            "review": True,
                             "reviewableSource": sub_instance_data[
                                 "reviewableSource"],
-                            "review": True,
                         })
+
+                elif creator_id == audio_creator_id:
+                    sub_instance_data["variant"] = "main"
+                    sub_instance_data["productType"] = "audio"
+                    sub_instance_data["productName"] = "audioMain"
+
+                    parenting_data = shot_instances[shot_creator_id]
+                    sub_instance_data.update(
+                        {
+                            "parent_instance_id": parenting_data["instance_id"],
+                            "label": (
+                                f"{sub_instance_data['folderPath']} "
+                                f"{sub_instance_data['productName']}"
+                            )
+                        }
+                    )
+                    creator_attributes["parentInstance"] = parenting_data[
+                        "label"]
+
+                    if sub_instance_data.get("reviewableSource"):
+                        creator_attributes["review"] = True
 
                 instance = creator.create(sub_instance_data, None)
                 instance.transient_data["track_item"] = track_item
