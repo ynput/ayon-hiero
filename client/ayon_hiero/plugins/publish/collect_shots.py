@@ -1,6 +1,7 @@
 import json
 import pyblish
 
+from ayon_core.pipeline import PublishError
 from ayon_hiero.api import lib
 from ayon_hiero.api.otio import utils
 
@@ -77,7 +78,8 @@ class CollectShot(pyblish.api.InstancePlugin):
             otio_timeline, instance.data["clip_index"]
         )
         if not otio_clip:
-            raise RuntimeError("Could not retrieve otioClip for shot %r", instance)
+            raise PublishError(
+                f"Could not retrieve otioClip for shot {instance}")
 
         # Compute fps from creator attribute.
         if instance.data['creator_attributes']["fps"] == "from_selection":
