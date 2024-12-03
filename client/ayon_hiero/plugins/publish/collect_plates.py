@@ -44,7 +44,7 @@ class CollectPlate(pyblish.api.InstancePlugin):
 
                 # Retrieve source clip media from otio clip.
                 # image sequence
-                if hasattr(otio_clip.media_reference, "target_url_base"):
+                if hasattr(otio_clip.media_reference, "target_url_for_image_number"):
                     file_url = otio_clip.media_reference.target_url_for_image_number(0)
                     sequence_length = (
                         otio_clip.media_reference.end_frame()
