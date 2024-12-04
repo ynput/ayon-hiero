@@ -1,4 +1,3 @@
-import os
 import pyblish
 
 from ayon_core.pipeline import PublishError
