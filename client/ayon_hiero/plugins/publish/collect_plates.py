@@ -39,12 +39,13 @@ class CollectPlate(pyblish.api.InstancePlugin):
         if review_switch is True:
             if reviewable_source == "clip_media":
                 instance.data["families"].append("review")
+                instance.data.pop("reviewTrack", None)
             else:
                 instance.data["reviewTrack"] = reviewable_source
 
-            # remove review keys from instance data
-            instance.data.pop("reviewableSource", None)
-            instance.data.pop("review", None)
+        # remove creator-specific review keys from instance data
+        instance.data.pop("reviewableSource", None)
+        instance.data.pop("review", None)
 
         # Retrieve instance data from parent instance shot instance.
         parent_instance_id = instance.data["parent_instance_id"]
