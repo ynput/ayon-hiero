@@ -267,10 +267,15 @@ def create_otio_clip(track_item):
 
     media_reference = create_otio_reference(clip)
     available_start = media_reference.available_range.start_time
-    conformed_start_value = available_start.value_rescaled_to(fps)
+    source_in_offset = otio.opentime.RationalTime(
+        source_in,
+        available_start.rate
+    )
+    src_in = available_start + source_in_offset
+    conformed_src_in = src_in.rescaled_to(fps)
 
     source_range = create_otio_time_range(
-        conformed_start_value + source_in,
+        conformed_src_in.value,  # no rounding to preserve accuracy
         duration,
         fps
     )
