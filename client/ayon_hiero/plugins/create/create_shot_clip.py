@@ -249,6 +249,12 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                         ),
                         disabled=not current_review,
                     ),
+                    BoolDef(
+                        "publish_effects",
+                        label="Publish clip effects",
+                        tooltip="Discover and publish clip effects",
+                        default=True,
+                    ),
                 ]
             )
         return instance_attributes

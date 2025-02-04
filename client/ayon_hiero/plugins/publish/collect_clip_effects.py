@@ -20,6 +20,14 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
         review = instance.data.get("review")
         review_track_index = instance.context.data.get("reviewTrackIndex")
         item = instance.data["item"]
+        product_name = instance.data.get("productName")
+
+        if not instance.data["creator_attributes"]["publish_effects"]:
+            self.log.debug(
+                "Effects collection/publish is disabled for %s",
+                product_name,
+            )
+            return
 
         if "audio" in instance.data["productType"]:
             return
@@ -64,7 +72,6 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
         if not effects:
             return
 
-        product_name = instance.data.get("productName")
         effects.update({"assignTo": product_name})
 
         product_name_split = re.findall(r'[A-Z][^A-Z]*', product_name)
