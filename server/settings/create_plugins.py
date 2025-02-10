@@ -67,10 +67,27 @@ class CreateShotClipModels(BaseSettingsModel):
     )
 
 
+class CollectShotClipInstancesModels(BaseSettingsModel):
+    collectSelectedInstance: bool = SettingsField(
+        False,
+        title="Collect only instances from selected clips.",
+        description=(
+            "This feature allows to restrict instance "
+            "collection to selected timeline clips "
+            "in the active sequence."
+        )
+    )
+
+
 class CreatorPluginsSettings(BaseSettingsModel):
     CreateShotClip: CreateShotClipModels = SettingsField(
         default_factory=CreateShotClipModels,
         title="Create Shot Clip"
+    )
+
+    CollectShotClip: CollectShotClipInstancesModels = SettingsField(
+        default_factory=CollectShotClipInstancesModels,
+        title="Collect Shot Clip instances"
     )
 
 

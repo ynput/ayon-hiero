@@ -916,9 +916,21 @@ OTIO file.
         else:
             all_video_tracks = []
 
+        create_settings = self.project_settings["hiero"]["create"]
+        collect_settings = create_settings["CollectShotClip"]
+        restrict_to_selection = collect_settings["collectSelectedInstance"]
+        current_selection = lib.get_timeline_selection()
+
         instances = []
         for video_track in all_video_tracks:
             for track_item in video_track:
+
+                # Should we restrict collection to selected item ?
+                # This might be convenient for heavy timelines and
+                # can be handled via creator settings.
+                if (restrict_to_selection
+                    and track_item not in current_selection):
+                    continue
 
                 # attempt to get AYON tag data
                 tag = lib.get_trackitem_ayon_tag(track_item)
@@ -930,6 +942,22 @@ OTIO file.
                 for creator_id, data in tag_data.get(_CONTENT_ID, {}).items():
                     self._create_and_add_instance(
                         data, creator_id, track_item, instances)
+
+        if restrict_to_selection:
+            # Ensure that parent shot instance are enabled.
+            # This can happen when vertical_align is enabled
+            # but hero track is not part of the collected clips.
+            all_shot_ids = [inst.id for inst in instances if inst.data["productType"] == "shot"]
+
+            for inst in instances:
+                if inst.id in all_shot_ids:
+                    continue
+
+                elif inst.data["parent_instance_id"] not in all_shot_ids:
+                    raise CreatorError(
+                        "Incomplete selection: please select hero track"
+                        f' for {inst.data["label"]} instance.'
+                    )
 
         return instances
 
