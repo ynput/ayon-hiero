@@ -959,7 +959,7 @@ OTIO file.
                 if inst.id in all_shot_ids:
                     continue
 
-                elif inst.data["parent_instance_id"] not in all_shot_ids:
+                elif inst.data["active"] and inst.data["parent_instance_id"] not in all_shot_ids:
                     raise CreatorError(
                         "Incomplete selection: please select hero track"
                         f' for {inst.data["label"]} instance.'
