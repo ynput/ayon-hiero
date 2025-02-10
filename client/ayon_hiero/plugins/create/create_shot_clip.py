@@ -923,8 +923,8 @@ OTIO file.
             all_video_tracks = []
 
         create_settings = self.project_settings["hiero"]["create"]
-        collect_settings = create_settings["CollectShotClip"]
-        restrict_to_selection = collect_settings["collectSelectedInstance"]
+        collect_settings = create_settings.get("CollectShotClip", {})
+        restrict_to_selection = collect_settings.get("collectSelectedInstance", False)
         current_selection = lib.get_timeline_selection()
 
         instances = []
