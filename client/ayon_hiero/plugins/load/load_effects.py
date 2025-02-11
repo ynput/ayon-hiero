@@ -1,6 +1,5 @@
 import json
 from collections import OrderedDict
-import six
 
 from ayon_core.pipeline import (
     AVALON_CONTAINER_ID,
@@ -246,7 +245,7 @@ class LoadEffects(load.LoaderPlugin):
                     for key, value in input.items()}
         elif isinstance(input, list):
             return [self.byteify(element) for element in input]
-        elif isinstance(input, six.text_type):
+        elif isinstance(input, str):
             return str(input)
         else:
             return input
