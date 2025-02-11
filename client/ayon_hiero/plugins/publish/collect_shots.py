@@ -118,7 +118,7 @@ class CollectShot(pyblish.api.InstancePlugin):
 
         # Retrieve clip from active_timeline
         if overwrite_clip_metadata:
-            source_clip = item.source()
+            source_clip = track_item.source()
             item_format = source_clip.format()
 
         # Get resolution from active timeline
