@@ -224,18 +224,23 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 disabled=True,
             )
         ]
+
+        if self.product_type in ("audio", "plate"):
+            instance_attributes.append(
+                BoolDef(
+                    "review",
+                    label="Review",
+                    tooltip="Switch to reviewable instance",
+                    default=False,
+                )
+            )
+
         if self.product_type == "plate":
             # Review track visibility
             current_review = instance.creator_attributes.get("review", False)
 
             instance_attributes.extend(
                 [
-                    BoolDef(
-                        "review",
-                        label="Review",
-                        tooltip="Switch to reviewable instance",
-                        default=False,
-                    ),
                     EnumDef(
                         "reviewableSource",
                         label="Reviewable Source",
@@ -268,17 +273,6 @@ class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
     product_type = "plate"
     label = "Editorial Plate"
 
-    def create(self, instance_data, _):
-        """Return a new CreateInstance for new shot from Resolve.
-
-        Args:
-            instance_data (dict): global data from original instance
-
-        Return:
-            CreatedInstance: The created instance object for the new shot.
-        """
-        return super().create(instance_data, None)
-
 
 class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     """Audio product type creator class"""
@@ -296,28 +290,6 @@ class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
         instance=None,
         project_entity=None):
         return f"{self.product_type}Main"
-
-    def get_attr_defs_for_instance(self, instance):
-
-        instance_attributes = [
-            TextDef(
-                "parentInstance",
-                label="Linked to",
-                disabled=True,
-            )
-        ]
-
-        instance_attributes.extend(
-            [
-                BoolDef(
-                    "review",
-                    label="Review",
-                    tooltip="Switch to reviewable instance",
-                    default=False,
-                ),
-            ]
-        )
-        return instance_attributes
 
 
 class CreateShotClip(plugin.HieroCreator):
@@ -652,23 +624,25 @@ OTIO file.
                             "variant": "main",
                             "productType": "shot",
                             "productName": "shotMain",
-                            "creator_attributes": {
-                                "workfileFrameStart": sub_instance_data[
-                                    "workfileFrameStart"
-                                ],
-                                "handleStart": sub_instance_data["handleStart"],
-                                "handleEnd": sub_instance_data["handleEnd"],
-                                "frameStart": workfileFrameStart,
-                                "frameEnd": (
-                                    workfileFrameStart + track_item_duration),
-                                "clipIn": track_item.timelineIn(),
-                                "clipOut": track_item.timelineOut(),
-                                "clipDuration": track_item_duration,
-                                "sourceIn": track_item.sourceIn(),
-                                "sourceOut": track_item.sourceOut(),
-                            },
                             "label": (
                                 f"{sub_instance_data['folderPath']} shotMain"),
+                        }
+                    )
+                    creator_attributes.update(
+                        {
+                            "workfileFrameStart": sub_instance_data[
+                                "workfileFrameStart"
+                            ],
+                            "handleStart": sub_instance_data["handleStart"],
+                            "handleEnd": sub_instance_data["handleEnd"],
+                            "frameStart": workfileFrameStart,
+                            "frameEnd": (
+                                workfileFrameStart + track_item_duration),
+                            "clipIn": track_item.timelineIn(),
+                            "clipOut": track_item.timelineOut(),
+                            "clipDuration": track_item_duration,
+                            "sourceIn": track_item.sourceIn(),
+                            "sourceOut": track_item.sourceOut(),
                         }
                     )
 
