@@ -6,6 +6,8 @@ from ayon_hiero.api import constants, plugin, lib, tags
 from ayon_core.pipeline.create import CreatorError, CreatedInstance
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
 
+import hiero
+
 
 # Used as a key by the creators in order to
 # retrieve the instances data into clip markers.
@@ -922,9 +924,31 @@ OTIO file.
         else:
             all_video_tracks = []
 
+        create_settings = self.project_settings["hiero"]["create"]
+        collect_settings = create_settings.get("CollectShotClip", {})
+        restrict_to_selection = collect_settings.get("collectSelectedInstance", False)
+        current_selection = [
+            item for item in lib.get_timeline_selection()
+            if isinstance(item, hiero.core.TrackItem)  # get only clips
+        ]
+
+        self.log.debug(
+            "Collect instances from timeline. "
+            f"restrict_to_selection setting: {restrict_to_selection} "
+            f"current_selection: {current_selection}"
+        )
+
         instances = []
         for video_track in all_video_tracks:
             for track_item in video_track:
+
+                # Should we restrict collection to selected item ?
+                # This might be convenient for heavy timelines and
+                # can be handled via creator settings.
+                # When nothing is selected, collect everything.
+                if (restrict_to_selection and current_selection
+                    and track_item not in current_selection):
+                    continue
 
                 # attempt to get AYON tag data
                 tag = lib.get_trackitem_ayon_tag(track_item)
@@ -936,6 +960,22 @@ OTIO file.
                 for creator_id, data in tag_data.get(_CONTENT_ID, {}).items():
                     self._create_and_add_instance(
                         data, creator_id, track_item, instances)
+
+        if restrict_to_selection:
+            # Ensure that parent shot instance are enabled.
+            # This can happen when vertical_align is enabled
+            # but hero track is not part of the collected clips.
+            all_shot_ids = [inst.id for inst in instances if inst.data["productType"] == "shot"]
+
+            for inst in instances:
+                if inst.id in all_shot_ids:
+                    continue
+
+                elif inst.data["active"] and inst.data["parent_instance_id"] not in all_shot_ids:
+                    raise CreatorError(
+                        "Incomplete selection: please select hero track"
+                        f' for {inst.data["label"]} instance.'
+                    )
 
         return instances
 
