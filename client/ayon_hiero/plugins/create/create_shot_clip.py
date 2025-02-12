@@ -6,6 +6,8 @@ from ayon_hiero.api import constants, plugin, lib, tags
 from ayon_core.pipeline.create import CreatorError, CreatedInstance
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
 
+import hiero
+
 
 # Used as a key by the creators in order to
 # retrieve the instances data into clip markers.
@@ -925,7 +927,16 @@ OTIO file.
         create_settings = self.project_settings["hiero"]["create"]
         collect_settings = create_settings.get("CollectShotClip", {})
         restrict_to_selection = collect_settings.get("collectSelectedInstance", False)
-        current_selection = lib.get_timeline_selection()
+        current_selection = [
+            item for item in lib.get_timeline_selection()
+            if isinstance(item, hiero.core.TrackItem)  # get only clips
+        ]
+
+        self.log.debug(
+            "Collect instances from timeline. "
+            f"restrict_to_selection setting: {restrict_to_selection} "
+            f"current_selection: {current_selection}"
+        )
 
         instances = []
         for video_track in all_video_tracks:
@@ -934,7 +945,8 @@ OTIO file.
                 # Should we restrict collection to selected item ?
                 # This might be convenient for heavy timelines and
                 # can be handled via creator settings.
-                if (restrict_to_selection
+                # When nothing is selected, collect everything.
+                if (restrict_to_selection and current_selection
                     and track_item not in current_selection):
                     continue
 
