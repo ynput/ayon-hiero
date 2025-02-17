@@ -280,17 +280,6 @@ class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     product_type = "audio"
     label = "Editorial Audio"
 
-    def get_product_name(
-        self,
-        project_name,
-        folder_entity,
-        task_entity,
-        variant,
-        host_name=None,
-        instance=None,
-        project_entity=None):
-        return f"{self.product_type}Main"
-
 
 class CreateShotClip(plugin.HieroCreator):
     """Publishable clip"""
@@ -307,8 +296,6 @@ or updating already created from Hiero. Publishing will create
 OTIO file.
 """
     create_allow_thumbnail = False
-
-    shot_instances = {}
 
     def get_pre_create_attr_defs(self):
 
@@ -551,6 +538,10 @@ OTIO file.
         }
 
         instances = []
+        all_shot_instances = {}
+        vertical_clip_match = {}
+        vertical_clip_used = {}
+
         for idx, track_item in enumerate(sorted_selected_track_items):
             _instance_data = copy.deepcopy(instance_data)
             _instance_data["clip_index"] = track_item.guid()
@@ -558,6 +549,8 @@ OTIO file.
             # convert track item to timeline media pool item
             publish_clip = plugin.PublishClip(
                 track_item,
+                vertical_clip_match,
+                vertical_clip_used,
                 pre_create_data=pre_create_data,
                 rename_index=idx,
                 data=_instance_data,
@@ -590,7 +583,7 @@ OTIO file.
 
             # Create new product(s) instances.
             shot_folder_path = _instance_data["folderPath"]
-            shot_instances = self.shot_instances.setdefault(
+            shot_instances = all_shot_instances.setdefault(
                 shot_folder_path, {})
 
             # desable shot creator if heroTrack is not enabled
@@ -703,10 +696,6 @@ OTIO file.
                 }
             )
             instances.append(instance)
-
-        # restore all caches
-        plugin.PublishClip.restore_all_caches()
-        self.shot_instances = {}
 
         return instances
 
