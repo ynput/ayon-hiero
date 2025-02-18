@@ -232,8 +232,15 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             if knob in _ignoring_keys:
                 continue
 
+            # Hiero 15.1v3
+            # This seems to be a bug. The "file" knob
+            # is always returned as animated by the API.
+            # (even tho it's not even possible
+            # to set this knob as animated from the UI).
+            is_file_knob = knob == "file"
+
             # get animation if node is animated
-            if node[knob].isAnimated():
+            if not is_file_knob and node[knob].isAnimated():
                 # grab animation including handles
                 knob_anim = [node[knob].getValueAt(i)
                              for i in range(
