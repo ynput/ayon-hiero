@@ -655,8 +655,6 @@ class PublishClip:
     Returns:
         hiero.core.TrackItem: hiero track item object with AYON tag
     """
-    vertical_clip_match = {}
-    vertical_clip_used = {}
     tag_data = {}
 
     types = {
@@ -696,17 +694,17 @@ class PublishClip:
         "reviewableSource",
     }
 
-    @classmethod
-    def restore_all_caches(cls):
-        cls.vertical_clip_match = {}
-        cls.vertical_clip_used = {}
-
     def __init__(
             self,
             track_item,
+            vertical_clip_match,
+            vertical_clip_used,
             pre_create_data=None,
             data=None,
             rename_index=0):
+
+        self.vertical_clip_match = vertical_clip_match
+        self.vertical_clip_used = vertical_clip_used
 
         self.rename_index = rename_index
 
@@ -812,6 +810,7 @@ class PublishClip:
         self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
+        self.driving_layer = self.driving_layer.replace(" ", "_")
         self.review_source = (
             get("reviewableSource") or self.review_source_default)
         self.audio = get("audio") or False

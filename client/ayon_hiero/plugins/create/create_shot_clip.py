@@ -224,18 +224,23 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 disabled=True,
             )
         ]
+
+        if self.product_type in ("audio", "plate"):
+            instance_attributes.append(
+                BoolDef(
+                    "review",
+                    label="Review",
+                    tooltip="Switch to reviewable instance",
+                    default=False,
+                )
+            )
+
         if self.product_type == "plate":
             # Review track visibility
             current_review = instance.creator_attributes.get("review", False)
 
             instance_attributes.extend(
                 [
-                    BoolDef(
-                        "review",
-                        label="Review",
-                        tooltip="Switch to reviewable instance",
-                        default=False,
-                    ),
                     EnumDef(
                         "reviewableSource",
                         label="Reviewable Source",
@@ -268,56 +273,12 @@ class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
     product_type = "plate"
     label = "Editorial Plate"
 
-    def create(self, instance_data, _):
-        """Return a new CreateInstance for new shot from Resolve.
-
-        Args:
-            instance_data (dict): global data from original instance
-
-        Return:
-            CreatedInstance: The created instance object for the new shot.
-        """
-        return super().create(instance_data, None)
-
 
 class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     """Audio product type creator class"""
     identifier = "io.ayon.creators.hiero.audio"
     product_type = "audio"
     label = "Editorial Audio"
-
-    def get_product_name(
-        self,
-        project_name,
-        folder_entity,
-        task_entity,
-        variant,
-        host_name=None,
-        instance=None,
-        project_entity=None):
-        return f"{self.product_type}Main"
-
-    def get_attr_defs_for_instance(self, instance):
-
-        instance_attributes = [
-            TextDef(
-                "parentInstance",
-                label="Linked to",
-                disabled=True,
-            )
-        ]
-
-        instance_attributes.extend(
-            [
-                BoolDef(
-                    "review",
-                    label="Review",
-                    tooltip="Switch to reviewable instance",
-                    default=False,
-                ),
-            ]
-        )
-        return instance_attributes
 
 
 class CreateShotClip(plugin.HieroCreator):
@@ -335,8 +296,6 @@ or updating already created from Hiero. Publishing will create
 OTIO file.
 """
     create_allow_thumbnail = False
-
-    shot_instances = {}
 
     def get_pre_create_attr_defs(self):
 
@@ -579,6 +538,10 @@ OTIO file.
         }
 
         instances = []
+        all_shot_instances = {}
+        vertical_clip_match = {}
+        vertical_clip_used = {}
+
         for idx, track_item in enumerate(sorted_selected_track_items):
             _instance_data = copy.deepcopy(instance_data)
             _instance_data["clip_index"] = track_item.guid()
@@ -586,6 +549,8 @@ OTIO file.
             # convert track item to timeline media pool item
             publish_clip = plugin.PublishClip(
                 track_item,
+                vertical_clip_match,
+                vertical_clip_used,
                 pre_create_data=pre_create_data,
                 rename_index=idx,
                 data=_instance_data,
@@ -618,7 +583,7 @@ OTIO file.
 
             # Create new product(s) instances.
             shot_folder_path = _instance_data["folderPath"]
-            shot_instances = self.shot_instances.setdefault(
+            shot_instances = all_shot_instances.setdefault(
                 shot_folder_path, {})
 
             # desable shot creator if heroTrack is not enabled
@@ -652,23 +617,25 @@ OTIO file.
                             "variant": "main",
                             "productType": "shot",
                             "productName": "shotMain",
-                            "creator_attributes": {
-                                "workfileFrameStart": sub_instance_data[
-                                    "workfileFrameStart"
-                                ],
-                                "handleStart": sub_instance_data["handleStart"],
-                                "handleEnd": sub_instance_data["handleEnd"],
-                                "frameStart": workfileFrameStart,
-                                "frameEnd": (
-                                    workfileFrameStart + track_item_duration),
-                                "clipIn": track_item.timelineIn(),
-                                "clipOut": track_item.timelineOut(),
-                                "clipDuration": track_item_duration,
-                                "sourceIn": track_item.sourceIn(),
-                                "sourceOut": track_item.sourceOut(),
-                            },
                             "label": (
                                 f"{sub_instance_data['folderPath']} shotMain"),
+                        }
+                    )
+                    creator_attributes.update(
+                        {
+                            "workfileFrameStart": sub_instance_data[
+                                "workfileFrameStart"
+                            ],
+                            "handleStart": sub_instance_data["handleStart"],
+                            "handleEnd": sub_instance_data["handleEnd"],
+                            "frameStart": workfileFrameStart,
+                            "frameEnd": (
+                                workfileFrameStart + track_item_duration),
+                            "clipIn": track_item.timelineIn(),
+                            "clipOut": track_item.timelineOut(),
+                            "clipDuration": track_item_duration,
+                            "sourceIn": track_item.sourceIn(),
+                            "sourceOut": track_item.sourceOut(),
                         }
                     )
 
@@ -729,10 +696,6 @@ OTIO file.
                 }
             )
             instances.append(instance)
-
-        # restore all caches
-        plugin.PublishClip.restore_all_caches()
-        self.shot_instances = {}
 
         return instances
 
