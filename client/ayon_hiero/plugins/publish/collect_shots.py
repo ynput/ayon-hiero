@@ -45,7 +45,7 @@ class CollectShot(pyblish.api.InstancePlugin):
 
         # Adjust handles:
         # Explain
-        track_item = instance.data["item"]
+        track_item = instance.data["trackItem"]
         instance.data.update({
             "handleStart": min(
                 instance.data["handleStart"], int(track_item.handleInLength())),
@@ -116,7 +116,7 @@ class CollectShot(pyblish.api.InstancePlugin):
 
         instance.data.update({
             "annotations": self.clip_annotations(track_item.source()),
-            "item": track_item,
+            "trackItem": track_item,
             "subtracks": self.clip_subtrack(track_item),
             "tags": lib.get_track_item_tags(track_item),
         })

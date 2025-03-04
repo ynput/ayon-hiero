@@ -45,7 +45,7 @@ class CollectPlate(pyblish.api.InstancePlugin):
                 f'clip guid: {instance.data["clip_index"]}'
             )
 
-        instance.data["item"] = track_item
+        instance.data["trackItem"] = track_item
 
         # solve reviewable options
         review_switch = instance.data["creator_attributes"].get(
@@ -80,7 +80,6 @@ class CollectPlate(pyblish.api.InstancePlugin):
                 " Please ensure it is set and enabled."
             )
 
-        track_item = instance.data["item"]
         clip_colorspace = track_item.sourceMediaColourTransform()
 
         # add colorspace data to versionData

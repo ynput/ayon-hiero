@@ -61,7 +61,7 @@ class CollectAudio(pyblish.api.InstancePlugin):
                 f'clip guid: {instance.data["clip_index"]}'
             )
 
-        instance.data["item"] = track_item
+        instance.data["trackItem"] = track_item
 
         # solve reviewable options
         review_switch = instance.data["creator_attributes"].get("review")
