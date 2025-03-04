@@ -19,7 +19,7 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
         effects = {}
         review = instance.data.get("review")
         review_track_index = instance.context.data.get("reviewTrackIndex")
-        item = instance.data["item"]
+        track_item = instance.data["trackItem"]
         product_name = instance.data.get("productName")
 
         if not instance.data["creator_attributes"]["publish_effects"]:
@@ -35,12 +35,11 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
         # frame range
         self.handle_start = instance.data["handleStart"]
         self.handle_end = instance.data["handleEnd"]
-        self.clip_in = int(item.timelineIn())
-        self.clip_out = int(item.timelineOut())
+        self.clip_in = int(track_item.timelineIn())
+        self.clip_out = int(track_item.timelineOut())
         self.clip_in_h = self.clip_in - self.handle_start
         self.clip_out_h = self.clip_out + self.handle_end
 
-        track_item = instance.data["item"]
         track = track_item.parent()
         track_index = track.trackIndex()
         tracks_effect_items = instance.context.data.get("tracksEffectItems")

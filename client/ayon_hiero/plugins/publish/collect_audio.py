@@ -46,6 +46,23 @@ class CollectAudio(pyblish.api.InstancePlugin):
 
         instance.data["otioClip"] = otio_clip
 
+        # Adjust info from track_item on timeline
+        active_timeline = instance.context.data["activeTimeline"]
+        track_item = None
+        for video_track in active_timeline.videoTracks():
+            for item in video_track.items():
+                if item.guid() == instance.data["clip_index"]:
+                    track_item = item
+                    break
+
+        if not track_item:
+            raise PublishError(
+                'Could not retrieve item from '
+                f'clip guid: {instance.data["clip_index"]}'
+            )
+
+        instance.data["trackItem"] = track_item
+
         # solve reviewable options
         review_switch = instance.data["creator_attributes"].get("review")
 

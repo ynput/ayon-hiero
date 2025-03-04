@@ -22,7 +22,6 @@ class CollectShot(pyblish.api.InstancePlugin):
         "fps",
         "handleStart",
         "handleEnd",
-        "item",
         "resolutionWidth",
         "resolutionHeight",
         "pixelAspect",
@@ -46,7 +45,7 @@ class CollectShot(pyblish.api.InstancePlugin):
 
         # Adjust handles:
         # Explain
-        track_item = instance.data["item"]
+        track_item = instance.data["trackItem"]
         instance.data.update({
             "handleStart": min(
                 instance.data["handleStart"], int(track_item.handleInLength())),
@@ -109,9 +108,15 @@ class CollectShot(pyblish.api.InstancePlugin):
                     track_item = item
                     break
 
+        if not track_item:
+            raise PublishError(
+                'Could not retrieve item from '
+                f'clip guid: {instance.data["clip_index"]}'
+            )
+
         instance.data.update({
             "annotations": self.clip_annotations(track_item.source()),
-            "item": track_item,
+            "trackItem": track_item,
             "subtracks": self.clip_subtrack(track_item),
             "tags": lib.get_track_item_tags(track_item),
         })

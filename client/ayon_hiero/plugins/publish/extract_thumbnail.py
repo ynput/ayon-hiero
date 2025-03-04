@@ -24,7 +24,7 @@ class ExtractThumbnail(publish.Extractor):
         self.create_thumbnail(staging_dir, instance)
 
     def create_thumbnail(self, staging_dir, instance):
-        track_item = instance.data["item"]
+        track_item = instance.data["trackItem"]
         track_item_name = track_item.name()
 
         # frames

@@ -13,7 +13,7 @@ class ExtractClipEffects(publish.Extractor):
     families = ["effect"]
 
     def process(self, instance):
-        item = instance.data["item"]
+        item = instance.data["trackItem"]
         effects = instance.data.get("effects")
 
         # skip any without effects
