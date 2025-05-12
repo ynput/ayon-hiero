@@ -7,7 +7,7 @@ __credits__ = ["Jakub Jezek", "Daniel Flehner Heen"]
 import hiero.ui
 import hiero.core
 
-import PySide2.QtWidgets as qw
+from qtpy import QtWidgets as qw
 
 from ayon_hiero.api.otio.hiero_import import load_otio
 
