@@ -10,9 +10,8 @@ from .OTIOExportTask import (
 )
 
 try:
-    # Hiero >= 11.x
-    from PySide2 import QtCore
-    from PySide2.QtWidgets import QCheckBox
+    # Hiero >= 11.x + support for PySide6
+    from qtpy import QtCore, QCheckBox
     from hiero.ui.FnTaskUIFormLayout import TaskUIFormLayout as FormLayout
 
 except ImportError:

@@ -9,7 +9,7 @@ import os
 import hiero.core
 import hiero.ui
 
-import PySide2.QtWidgets as qw
+from qtpy import QtWidgets as qw
 
 try:
     from urllib import unquote

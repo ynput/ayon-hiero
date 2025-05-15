@@ -26,15 +26,6 @@ def tag_data():
                 }
             }
         },
-        # "NukeScript": {
-        #     "editable": "1",
-        #     "note": "Collecting track items to Nuke scripts.",
-        #     "icon": "icons:TagNuke.png",
-        #     "metadata": {
-        #         "productType": "nukescript",
-        #         "productName": "main"
-        #     }
-        # },
         "Comment": {
             "editable": "1",
             "note": "Comment on a shot.",
