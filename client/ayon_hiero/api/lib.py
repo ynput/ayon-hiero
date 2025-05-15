@@ -15,11 +15,7 @@ import hiero
 
 from qtpy import QtWidgets, QtCore
 import ayon_api
-
-try:
-    from PySide import QtXml
-except ImportError:
-    from qtpy import import QtXml
+from qtpy import QtXml
 
 from ayon_core.settings import get_project_settings
 from ayon_core.pipeline import (
