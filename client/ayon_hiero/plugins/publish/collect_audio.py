@@ -4,7 +4,7 @@ from ayon_core.pipeline import PublishError
 from ayon_hiero.api.otio import utils
 
 
-class CollectAudio(pyblish.api.InstancePlugin):
+class CollectEditorialAudio(pyblish.api.InstancePlugin):
     """Collect new audio."""
 
     order = pyblish.api.CollectorOrder - 0.48
