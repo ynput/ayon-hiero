@@ -52,23 +52,23 @@ class WorkfileColorspaceSettings(BaseSettingsModel):
     viewerLut: str = SettingsField(
         title="Viewer"
     )
-    eightBitLut: str = SettingsField(
-        title="8-bit files"
-    )
-    sixteenBitLut: str = SettingsField(
-        title="16-bit files"
-    )
-    logLut: str = SettingsField(
-        title="Log files"
-    )
-    floatLut: str = SettingsField(
-        title="Float files"
-    )
     thumbnailLut: str = SettingsField(
-        title="Thumnails"
+        title="Thumbnails"
     )
     monitorOutLut: str = SettingsField(
-        title="Monitor"
+        title="Monitor Out"
+    )
+    eightBitLut: str = SettingsField(
+        title="8-bit Files"
+    )
+    sixteenBitLut: str = SettingsField(
+        title="16-bit Files"
+    )
+    logLut: str = SettingsField(
+        title="Log Files"
+    )
+    floatLut: str = SettingsField(
+        title="Floating Point Files"
     )
 
 
