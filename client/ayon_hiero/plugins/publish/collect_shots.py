@@ -94,7 +94,6 @@ class CollectShot(pyblish.api.InstancePlugin):
         creator_id = instance.data["creator_identifier"]
 
         marker_metadata = json.loads(marker.metadata["json_metadata"])
-        inst_data = marker_metadata["hiero_sub_products"].get(creator_id, {})
 
         # Overwrite settings with clip metadata is "sourceResolution"
         overwrite_clip_metadata = instance.data['creator_attributes'].get(
