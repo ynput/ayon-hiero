@@ -167,6 +167,14 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
 
     def get_instance_attr_defs(self):
         instance_attributes = CLIP_ATTR_DEFS
+        instance_attributes.append(
+            BoolDef(
+                "sourceResolution",
+                label="Set shot resolution from plate",
+                tooltip="Is resolution taken from timeline or source?",
+                default=False,
+            )
+        )
         return instance_attributes
 
 
@@ -636,6 +644,7 @@ OTIO file.
                             "clipDuration": track_item_duration,
                             "sourceIn": track_item.sourceIn(),
                             "sourceOut": track_item.sourceOut(),
+                            "sourceResolution": sub_instance_data["sourceResolution"],
                         }
                     )
 
@@ -825,6 +834,7 @@ OTIO file.
                 "clipDuration": track_item_duration,
                 "sourceIn": track_item.sourceIn(),
                 "sourceOut": track_item.sourceOut(),
+                "sourceResolution": sub_instance_data.get("sourceResolution", False),
             }
         })
 
