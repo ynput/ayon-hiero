@@ -85,15 +85,11 @@ class CollectShot(pyblish.api.InstancePlugin):
             raise PublishError(
                 f"Could not retrieve otioClip for shot {instance}")
 
+        instance.data["otioClip"] = otio_clip
+
         # Compute fps from creator attribute.
         if instance.data['creator_attributes']["fps"] == "from_selection":
             instance.data['creator_attributes']["fps"] = instance.context.data["fps"]
-
-        # Retrieve AyonData marker for associated clip.
-        instance.data["otioClip"] = otio_clip
-        creator_id = instance.data["creator_identifier"]
-
-        marker_metadata = json.loads(marker.metadata["json_metadata"])
 
         # Overwrite settings with clip metadata is "sourceResolution"
         overwrite_clip_metadata = instance.data['creator_attributes'].get(
