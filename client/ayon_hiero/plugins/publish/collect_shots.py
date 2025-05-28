@@ -97,7 +97,8 @@ class CollectShot(pyblish.api.InstancePlugin):
         inst_data = marker_metadata["hiero_sub_products"].get(creator_id, {})
 
         # Overwrite settings with clip metadata is "sourceResolution"
-        overwrite_clip_metadata = inst_data.get("sourceResolution", False)
+        overwrite_clip_metadata = instance.data['creator_attributes'].get(
+            "sourceResolution", False)
         active_timeline = instance.context.data["activeTimeline"]
 
         # Adjust info from track_item on timeline
