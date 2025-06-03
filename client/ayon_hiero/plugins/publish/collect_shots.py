@@ -90,9 +90,9 @@ class CollectShot(pyblish.api.InstancePlugin):
         if instance.data['creator_attributes']["fps"] == "from_selection":
             instance.data['creator_attributes']["fps"] = instance.context.data["fps"]
 
-        # Overwrite settings with clip metadata is "sourceResolution"
+        # Overwrite settings with clip metadata is "useSourceResolution"
         overwrite_clip_metadata = instance.data['creator_attributes'].get(
-            "sourceResolution", False)
+            "useSourceResolution", False)
         active_timeline = instance.context.data["activeTimeline"]
 
         # Adjust info from track_item on timeline
