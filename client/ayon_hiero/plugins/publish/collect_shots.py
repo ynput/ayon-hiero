@@ -1,4 +1,3 @@
-import json
 import pyblish
 
 from ayon_core.pipeline import PublishError
@@ -85,19 +84,15 @@ class CollectShot(pyblish.api.InstancePlugin):
             raise PublishError(
                 f"Could not retrieve otioClip for shot {instance}")
 
+        instance.data["otioClip"] = otio_clip
+
         # Compute fps from creator attribute.
         if instance.data['creator_attributes']["fps"] == "from_selection":
             instance.data['creator_attributes']["fps"] = instance.context.data["fps"]
 
-        # Retrieve AyonData marker for associated clip.
-        instance.data["otioClip"] = otio_clip
-        creator_id = instance.data["creator_identifier"]
-
-        marker_metadata = json.loads(marker.metadata["json_metadata"])
-        inst_data = marker_metadata["hiero_sub_products"].get(creator_id, {})
-
-        # Overwrite settings with clip metadata is "sourceResolution"
-        overwrite_clip_metadata = inst_data.get("sourceResolution", False)
+        # Overwrite settings with clip metadata is "useSourceResolution"
+        overwrite_clip_metadata = instance.data['creator_attributes'].get(
+            "useSourceResolution", False)
         active_timeline = instance.context.data["activeTimeline"]
 
         # Adjust info from track_item on timeline
