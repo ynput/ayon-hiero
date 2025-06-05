@@ -1,12 +1,7 @@
 import hiero.core
 import hiero.ui
-try:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-except:
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    from PySide2.QtCore import *
+
+from qtpy.QtWidgets import QAction
 
 
 def setPosterFrame(posterFrame=.5):

@@ -1,15 +1,9 @@
-try:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-except:
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    from PySide2.QtCore import *
-
 from hiero.core.util import uniquify, version_get, version_set
 import hiero.core
 import hiero.ui
 import nuke
+
+from qtpy.QtWidgets import QAction
 
 # A globally variable for storing the current Project
 gTrackedActiveProject = None

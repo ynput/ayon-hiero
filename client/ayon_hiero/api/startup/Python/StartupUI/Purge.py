@@ -8,13 +8,9 @@
 
 import hiero
 import hiero.core.find_items
-try:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-except:
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    from PySide2.QtCore import *
+
+from qtpy.QtWidgets import QAction, QMessageBox
+from qtpy.QtGui import QIcon
 
 
 class PurgeUnusedAction(QAction):
