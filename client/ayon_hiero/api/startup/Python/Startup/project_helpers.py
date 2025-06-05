@@ -63,7 +63,7 @@ def activeProject():
                 # It's possible that there is no selection in a Timeline/Spreadsheet, but these views have "sequence" method, so try that...
                 if isinstance(hiero.ui.activeView(), (hiero.ui.TimelineEditor, hiero.ui.SpreadsheetView)):
                     activeSequence = activeView.sequence()
-                    if hasattr(currentItem, "project"):
+                    if hasattr(activeSequence, "project"):
                         activeProject = activeSequence.project()
 
             # The active view has a selection... assume that the first item in the selection has the active Project
