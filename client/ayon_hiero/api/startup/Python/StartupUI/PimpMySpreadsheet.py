@@ -7,13 +7,9 @@
 import hiero.core
 import hiero.ui
 
-try:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-except:
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    from PySide2.QtCore import *
+from qtpy.QtCore import QObject, QSize, Qt, QRect
+from qtpy.QtGui import QIcon, QColor, QImage, QPixmap, QPen
+from qtpy.QtWidgets import QStyle, QLabel, QComboBox, QAction, QMenu
 
 # Set to True, if you wat "Set Status" right-click menu, False if not
 kAddStatusMenu = True

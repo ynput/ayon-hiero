@@ -8,13 +8,10 @@ import csv
 
 import hiero.core.events
 import hiero.ui
-try:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-except:
-    from PySide2.QtGui import *
-    from PySide2.QtWidgets import *
-    from PySide2.QtCore import *
+
+from qtpy.QtWidgets import QApplication, QAction, QFileDialog
+from qtpy.QtGui import QIcon, QDesktopServices
+from qtpy.QtCore import Qt, QModelIndex, QDir, QUrl
 
 
 ### Magic Widget Finding Methods - This stuff crawls all the PySide widgets, looking for an answer
