@@ -1033,7 +1033,7 @@ def apply_colorspace_project():
         "8 Bit Files:": "eightBitLut",
         "16 Bit Files:": "sixteenBitLut",
         "Log Files:": "logLut",
-        "Floating Point Files:": "floatLut"
+        "Floating Point Files:": "floatLut",
     }
     widgets = {x: None for x in labels.values()}
 
@@ -1056,76 +1056,23 @@ def apply_colorspace_project():
 
     msg = "Setting value \"{}\" is not a valid option for \"{}\""
     for key, widget in widgets.items():
-        options = [widget.itemText(i) for i in range(widget.count())]
+        options = [
+            widget.itemText(i) for i in range(widget.count())
+            if "Error:" not in widget.itemText(i)
+        ]
         setting_value = presets[key]
-        assert setting_value in options, msg.format(setting_value, key)
-        widget.setCurrentText(presets[key])
-
-    # This code block is for setting up project colorspaces for files on disk.
-    # Due to not having Python API access to set the project settings, the
-    # Foundry recommended way is to modify the hrox files on disk with XML. See
-    # this forum thread for more details;
-    # https://community.foundry.com/discuss/topic/137771/change-a-project-s-default-color-transform-with-python  # noqa
-    '''
-    # backward compatibility layer
-    # TODO: remove this after some time
-    config_data = get_current_context_imageio_config_preset()
-
-    if config_data:
-        presets.update({
-            "ocioConfigName": "custom"
-        })
-
-    # get path the the active projects
-    project = get_current_project()
-    current_file = project.path()
-
-    msg = "The project needs to be saved to disk to apply colorspace settings."
-    assert current_file, msg
-
-    # save the workfile as subversion "comment:_colorspaceChange"
-    split_current_file = os.path.splitext(current_file)
-    copy_current_file = current_file
-
-    if "_colorspaceChange" not in current_file:
-        copy_current_file = (
-            split_current_file[0]
-            + "_colorspaceChange"
-            + split_current_file[1]
-        )
-
-    try:
-        # duplicate the file so the changes are applied only to the copy
-        shutil.copyfile(current_file, copy_current_file)
-    except shutil.Error:
-        # in case the file already exists and it want to copy to the
-        # same filewe need to do this trick
-        # TEMP file name change
-        copy_current_file_tmp = copy_current_file + "_tmp"
-        # create TEMP file
-        shutil.copyfile(current_file, copy_current_file_tmp)
-        # remove original file
-        os.remove(current_file)
-        # copy TEMP back to original name
-        shutil.copyfile(copy_current_file_tmp, copy_current_file)
-        # remove the TEMP file as we dont need it
-        os.remove(copy_current_file_tmp)
-
-    # use the code from below for changing xml hrox Attributes
-    presets.update({"name": os.path.basename(copy_current_file)})
-
-    # read HROX in as QDomSocument
-    doc = _read_doc_from_path(copy_current_file)
-
-    # apply project colorspace properties
-    _set_hrox_project_knobs(doc, **presets)
-
-    # write QDomSocument back as HROX
-    _write_doc_to_path(doc, copy_current_file)
-
-    # open the file as current project
-    hiero.core.openProject(copy_current_file)
-    '''
+        found = False
+        for option in options:
+            if setting_value in option:
+                found = True
+                break
+        assert found, msg.format(setting_value, key)
+        log.info(f"Setting {key} to {setting_value}")
+        # Find the index of the setting value in the widget options
+        for i in range(widget.count()):
+            if setting_value in widget.itemText(i):
+                widget.setCurrentIndex(i)
+                break
 
 
 def apply_colorspace_clips():
