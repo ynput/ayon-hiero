@@ -65,7 +65,7 @@ class KnobModel(BaseSettingsModel):
         title="Type",
         description="Switch between different knob types",
         enum_resolver=lambda: knob_types_enum,
-        conditionalEnum=True
+        conditional_enum=True
     )
     name: str = SettingsField(
         title="Name",

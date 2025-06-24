@@ -44,7 +44,7 @@ class WorkfileColorspaceSettings(BaseSettingsModel):
         title="OpenColorIO Config",
         description="Switch between OCIO configs",
         enum_resolver=ocio_configs_switcher_enum,
-        conditionalEnum=True
+        conditional_enum=True
     )
     workingSpace: str = SettingsField(
         title="Working Space"
