@@ -713,11 +713,14 @@ class PublishClip:
 
         # get main parent objects
         self.track_item = track_item
+        name_sanity_replace_pattern = re.compile(r"[ -.,]")
         sequence_name = lib.get_current_sequence().name()
-        self.sequence_name = str(sequence_name).replace(" ", "_")
+        self.sequence_name = re.sub(
+            name_sanity_replace_pattern, "_", str(sequence_name))
 
         # track item (clip) main attributes
-        self.ti_name = track_item.name()
+        self.ti_name = re.sub(
+            name_sanity_replace_pattern, "_", str(track_item.name()))
         self.ti_index = int(track_item.eventNumber())
 
         # get track name and index
