@@ -6,8 +6,6 @@ from ayon_core.pipeline import publish
 import hiero
 import tempfile
 
-from qtpy.QtGui import QPixmap
-
 
 class ExtractWorkfile(publish.Extractor):
     """
@@ -45,7 +43,6 @@ class ExtractWorkfile(publish.Extractor):
 
         # export window to thumb path
         pixmap = _windows[-1].grab()
-
         pixmap.save(thumbnail_path, 'png')
 
         # thumbnail
