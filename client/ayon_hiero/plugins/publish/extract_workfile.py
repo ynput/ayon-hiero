@@ -44,11 +44,7 @@ class ExtractWorkfile(publish.Extractor):
                     if active_timeline.name() in w.windowTitle()]
 
         # export window to thumb path
-        try:
-            pixmap = QPixmap.grabWidget(_windows[-1])
-        # https://doc.qt.io/archives/qt-5.15/qpixmap-obsolete.html#grabWidget
-        except AttributeError:
-            pixmap = _windows[-1].grab()
+        pixmap = _windows[-1].grab()
 
         pixmap.save(thumbnail_path, 'png')
 
