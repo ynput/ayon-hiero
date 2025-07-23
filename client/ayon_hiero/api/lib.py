@@ -148,7 +148,8 @@ def get_current_sequence(name=None, new=False):
 
 def get_timeline_selection():
     active_sequence = hiero.ui.activeSequence()
-    if active_sequence is None:  # no active timeline
+    # There is no active timeline
+    if active_sequence is None:
         return []
 
     timeline_editor = hiero.ui.getTimelineEditor(active_sequence)
