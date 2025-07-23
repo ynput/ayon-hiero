@@ -6,8 +6,6 @@ from ayon_core.pipeline import publish
 import hiero
 import tempfile
 
-from qtpy.QtGui import QPixmap
-
 
 class ExtractWorkfile(publish.Extractor):
     """
@@ -44,7 +42,8 @@ class ExtractWorkfile(publish.Extractor):
                     if active_timeline.name() in w.windowTitle()]
 
         # export window to thumb path
-        QPixmap.grabWidget(_windows[-1]).save(thumbnail_path, 'png')
+        pixmap = _windows[-1].grab()
+        pixmap.save(thumbnail_path, 'png')
 
         # thumbnail
         thumb_representation = {
