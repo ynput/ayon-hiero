@@ -177,6 +177,7 @@ def remove_workfile_tag(tag_name: str) -> None:
             ):
                 tag_bin.removeItem(item)
                 return
+        break
 
 
 def add_tags_to_workfile():
