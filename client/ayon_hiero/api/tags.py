@@ -1,3 +1,5 @@
+from typing import Optional
+
 import json
 import re
 import hiero
