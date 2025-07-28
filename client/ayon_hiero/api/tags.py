@@ -120,18 +120,9 @@ def get_tag_data(tag):
         return {}
 
 
-def get_or_create_workfile_tag(
-    tag_name: str, create: bool = False
-) -> Optional[hiero.core.Tag]:
-    """
-    Args:
-        tag_name (str): The name of the tag to create.
-        create (bool): Create the project tag if missing.
-
-    Returns:
-        hiero.core.Tag: The AYON tag or None
-
-    """
+def get_workfile_bin(
+        create: bool = False,
+    ) -> Optional[hiero.core.Tag]:
     from .lib import get_current_project  # noqa prevent-circular-import
     current_project = get_current_project()
 
@@ -147,6 +138,25 @@ def get_or_create_workfile_tag(
             return None
 
     # retrieve tag
+    return tag_bin
+
+
+def get_or_create_workfile_tag(
+    tag_name: str, create: bool = False
+) -> Optional[hiero.core.Tag]:
+    """
+    Args:
+        tag_name (str): The name of the tag to create.
+        create (bool): Create the project tag if missing.
+
+    Returns:
+        hiero.core.Tag: The AYON tag or None
+
+    """
+    tag_bin = get_workfile_bin(create=create)
+    if not tag_bin:
+        return None
+
     for item in tag_bin.items():
         if (isinstance(item, hiero.core.Tag)
             and item.name() == tag_name):

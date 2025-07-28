@@ -1,6 +1,7 @@
 """ compatibility OpenTimelineIO 0.12.0 and newer
 """
 
+from typing import Optional
 import os
 import re
 import opentimelineio as otio
@@ -373,10 +374,12 @@ def add_otio_metadata(otio_item, media_source, **kwargs):
         otio_item.metadata.update({key: value})
 
 
-def create_otio_timeline():
+def create_otio_timeline(
+    sequence: Optional[hiero.core.Sequence] = None,
+) -> otio.schema.Timeline:
 
     # get current timeline
-    CTX.timeline = hiero.ui.activeSequence()
+    CTX.timeline = sequence or hiero.ui.activeSequence()
     CTX.project_fps = CTX.timeline.framerate().toFloat()
 
     # convert timeline to otio
