@@ -73,6 +73,7 @@ class CreateEditorialPackage(plugin.HieroCreator):
             raise CreatorError("No active sequence.")
 
         instance_data["guid"] = current_sequence.guid()
+        instance_data["label"] = f"{product_name} ({current_sequence.name()})"
         instance_data["creator_attributes"] = {
             "review": pre_create_data["review"]
         }

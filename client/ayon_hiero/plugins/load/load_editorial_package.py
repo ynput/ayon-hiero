@@ -32,18 +32,19 @@ class LoadEditorialPackage(load.LoaderPlugin):
             context: Dict[str, Any],
             seq: hiero.core.Sequence
         ) -> Dict[str, str]:
-        version_entity = context["version"]
         return {
             "schema": "ayon:container-3.0",
             "id": AYON_CONTAINER_ID,
             "loader": str(cls.__name__),
-            "author": version_entity["data"]["author"],
             "representation": context["representation"]["id"],
-            "version": version_entity["version"],
             "name": seq.guid(),
             "namespace": seq.name(),
             "objectName": seq.name(),
         }
+
+    @classmethod
+    def _get_tag_name(cls, seq_guid: str) -> str:
+        return f"{seq_guid}_loaded_editpkg"
 
     def load(self, context, name, namespace, data):
         files = get_representation_path(context["representation"])
@@ -66,7 +67,7 @@ class LoadEditorialPackage(load.LoaderPlugin):
 
         # Set Tag for loaded instance
         edpkg_tag = tags.get_or_create_workfile_tag(
-            f"{seq.guid()}_{name}",
+            self._get_tag_name(seq.guid()),
             create=True
         )
         tag_data = {
@@ -78,12 +79,18 @@ class LoadEditorialPackage(load.LoaderPlugin):
     def update(self, container, context):
         """Update the container with the latest version."""
         product_name = context["product"]["name"]
-        seq_guid = container["name"]
-        tags.remove_workfile_tag(f"{seq_guid}_{product_name}",)
-
+        self.remove(container)
         self.load(
             context,
             product_name,
             container["namespace"],
             container,
         )
+
+    def remove(self, container):
+        """Remove a container."""
+        # TODO: remove the underlying sequence as well ?
+        # might need a confirmation before that.
+        seq_guid = container["name"]
+        tag_name = self._get_tag_name(seq_guid)
+        tags.remove_workfile_tag(tag_name)
