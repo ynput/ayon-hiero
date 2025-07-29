@@ -1,10 +1,6 @@
 import pyblish.api
-
-
 from ayon_core.pipeline import PublishError
 from ayon_hiero.api import lib
-
-
 
 class CollectEditorialPackages(pyblish.api.InstancePlugin):
     """Collect all Editorial Packages."""

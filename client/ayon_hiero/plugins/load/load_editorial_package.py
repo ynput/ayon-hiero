@@ -2,10 +2,8 @@ from typing import Dict, Any
 from pathlib import Path
 import os
 import glob
-
-
 from ayon_core.pipeline import (
-    AVALON_CONTAINER_ID,
+    AYON_CONTAINER_ID,
     load,
     get_representation_path,
 )
@@ -37,7 +35,7 @@ class LoadEditorialPackage(load.LoaderPlugin):
         version_entity = context["version"]
         return {
             "schema": "ayon:container-3.0",
-            "id": AVALON_CONTAINER_ID,
+            "id": AYON_CONTAINER_ID,
             "loader": str(cls.__name__),
             "author": version_entity["data"]["author"],
             "representation": context["representation"]["id"],

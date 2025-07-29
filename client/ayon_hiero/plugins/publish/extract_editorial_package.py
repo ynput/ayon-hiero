@@ -1,4 +1,6 @@
-from typing import Dict, Any
+from __future__ import annotations
+
+from typing import Any
 import os
 from pathlib import Path
 
@@ -21,14 +23,14 @@ class ExtractEditorialPackage(publish.Extractor):
     @staticmethod
     def _get_anticipated_publish_path(
             instance: pyblish.api.Instance,
-            repre_data: Dict[str, Any],
+            repre_data: dict[str, Any],
         ) -> str:
         anatomy = instance.context.data["anatomy"]
-        template_data = instance.data.get("anatomyData")
+        template_data = deepcopy(instance.data["anatomyData"])
         template_data["root"] = anatomy.roots
         template_data["representation"] = repre_data["name"]
         template_data["ext"] = repre_data["ext"]
-        template_data["comment"] = None
+        template_data.pop("comment", None)
 
         template = anatomy.get_template_item("publish", "default", "path")
         template_filled = template.format_strict(template_data)
@@ -81,8 +83,7 @@ class ExtractEditorialPackage(publish.Extractor):
                 )
 
     def process(self, instance: pyblish.api.Instance):
-        if "representations" not in instance.data:
-            instance.data["representations"] = []
+        instance.data.setdefault("representations", [])
 
         temp_dir = self.staging_dir(instance)
         seq = instance.data["hiero_sequence"]
