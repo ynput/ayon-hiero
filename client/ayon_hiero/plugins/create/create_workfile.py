@@ -2,7 +2,7 @@
 """Creator plugin for creating workfiles."""
 from ayon_core.pipeline.create import CreatedInstance, AutoCreator
 
-from ayon_hiero.api import tags
+from ayon_hiero.api import tags, constants
 
 
 class CreateWorkfile(AutoCreator):
@@ -23,7 +23,10 @@ class CreateWorkfile(AutoCreator):
         Args:
             data (dict): The data to push to the project tag.
         """
-        project_tag = tags.get_or_create_workfile_tag(create=True)
+        project_tag = tags.get_or_create_workfile_tag(
+            constants.AYON_WORKFILE_TAG_NAME,
+            create=True
+        )
 
         tag_data = {
             "metadata": data,
@@ -37,7 +40,9 @@ class CreateWorkfile(AutoCreator):
         Returns:
             dict. The project data.
         """
-        project_tag = tags.get_or_create_workfile_tag()
+        project_tag = tags.get_or_create_workfile_tag(
+            constants.AYON_WORKFILE_TAG_NAME
+        )
         if project_tag is None:
             return {}
 

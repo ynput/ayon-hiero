@@ -1,3 +1,5 @@
+from typing import Optional
+
 import json
 import re
 import hiero
@@ -118,14 +120,9 @@ def get_tag_data(tag):
         return {}
 
 
-def get_or_create_workfile_tag(create=False):
-    """
-    Args:
-        create (bool): Create the project tag if missing.
-
-    Returns:
-        hiero.core.Tag: The workfile tag or None
-    """
+def get_workfile_bin(
+        create: bool = False,
+    ) -> Optional[hiero.core.Tag]:
     from .lib import get_current_project  # noqa prevent-circular-import
     current_project = get_current_project()
 
@@ -141,14 +138,58 @@ def get_or_create_workfile_tag(create=False):
             return None
 
     # retrieve tag
+    return tag_bin
+
+
+def get_or_create_workfile_tag(
+    tag_name: str, create: bool = False
+) -> Optional[hiero.core.Tag]:
+    """
+    Args:
+        tag_name (str): The name of the tag to create.
+        create (bool): Create the project tag if missing.
+
+    Returns:
+        hiero.core.Tag: The AYON tag or None
+
+    """
+    tag_bin = get_workfile_bin(create=create)
+    if not tag_bin:
+        return None
+
     for item in tag_bin.items():
         if (isinstance(item, hiero.core.Tag)
-            and item.name() == constants.AYON_WORKFILE_TAG_NAME):
+            and item.name() == tag_name):
             return item
 
-    workfile_tag = hiero.core.Tag(constants.AYON_WORKFILE_TAG_NAME)
+    workfile_tag = hiero.core.Tag(tag_name)
     tag_bin.addItem(workfile_tag)
     return workfile_tag
+
+
+def remove_workfile_tag(tag_name: str) -> None:
+    """Remove tag from AYON workfile tag bin.
+
+    Args:
+        tag_name (str): The name of the tag to create.
+
+    """
+    from .lib import get_current_project  # noqa prevent-circular-import
+    current_project = get_current_project()
+
+    project_tag_bin = current_project.tagsBin()
+    for tag_bin in project_tag_bin.bins():
+        if tag_bin.name() != constants.AYON_WORKFILE_TAG_BIN:
+            continue
+
+        for item in tag_bin.items():
+            if (
+                isinstance(item, hiero.core.Tag)
+                and item.name() == tag_name
+            ):
+                tag_bin.removeItem(item)
+                return
+        break
 
 
 def add_tags_to_workfile():
