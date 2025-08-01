@@ -3,9 +3,6 @@ from typing import Optional
 from ayon_hiero.api import lib
 
 import hiero.core
-import hiero.exporters
-
-from hiero.core import TimelineDirectExport
 
 
 def render_sequence_as_quicktime(
@@ -53,6 +50,14 @@ def render_sequence_as_quicktime(
       "resize" : "width",
       "transformType" : "colorspace"
     }
+
+    try:
+        # Only available since 16.0
+        from hiero.core import TimelineDirectExport
+    except ImportError as error:
+        raise NotImplementedError(
+            "This feature require Hiero 16.0 or above."
+            ) from error
 
     exportObj = TimelineDirectExport()
     exportObj.exportSequence(

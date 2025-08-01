@@ -27,6 +27,11 @@ class CreateEditorialPackage(plugin.HieroCreator):
     icon = "camera"
     defaults = ["Main"]
 
+    # Editorial_Pkg export relies on QuickExport feature
+    # that is only available since 16.0.
+    # https://learn.foundry.com/hiero/developers/16.0/HieroPythonDevGuide/quick_export.html
+    enabled = hiero.core.env.get("VersionMajor", 0) >= 16
+
     def get_pre_create_attr_defs(self) -> List[AbstractAttrDef]:
         return _CREATE_ATTR_DEFS
 
