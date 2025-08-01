@@ -28,7 +28,7 @@ from ayon_core.tools.utils import host_tools
 
 from ayon_hiero import HIERO_ADDON_ROOT
 
-from . import lib, menu, events
+from . import lib, tags, menu, events
 from .workio import (
     open_file,
     save_file,
@@ -145,7 +145,7 @@ def containerise(track_item,
 def ls():
     """List available containers.
 
-    This function is used by the Container Manager in Nuke. You'll
+    This function is used by the Container Manager in Hiero. You'll
     need to implement a for-loop that then *yields* one Container at
     a time.
 
@@ -170,6 +170,16 @@ def ls():
                 yield _c
         elif container_data:
             yield container_data
+
+    # get container from tags
+    tag_bin = tags.get_workfile_bin()
+    if not tag_bin:
+        return
+
+    for tag_item in tag_bin.items():
+        tag_data = tags.get_tag_data(tag_item)
+        if tag_data.get("schema") == "ayon:container-3.0":
+            yield tag_data
 
 
 def parse_container(item, validate=True):
