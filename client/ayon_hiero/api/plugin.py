@@ -323,7 +323,7 @@ class Spacer(QtWidgets.QWidget):
 
 
 class SequenceLoader(LoaderPlugin):
-    """A basic SequenceLoader for Resolve
+    """A basic SequenceLoader for Hiero
 
     This will implement the basic behavior for a loader to inherit from that
     will containerize the reference and will implement the `remove` and
@@ -554,8 +554,7 @@ class ClipLoader:
         log.debug("__ self.timeline_out: {}".format(self.timeline_out))
 
         # check if slate is included
-        slate_on = "slate" in self.context["version"]["data"].get(
-            "families", [])
+        slate_on = "slate" in version_attributes.get("families", [])
         log.debug("__ slate_on: {}".format(slate_on))
 
         # if slate is on then remove the slate frame from beginning
