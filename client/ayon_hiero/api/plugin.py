@@ -323,7 +323,7 @@ class Spacer(QtWidgets.QWidget):
 
 
 class SequenceLoader(LoaderPlugin):
-    """A basic SequenceLoader for Resolve
+    """A basic SequenceLoader for Hiero
 
     This will implement the basic behavior for a loader to inherit from that
     will containerize the reference and will implement the `remove` and
