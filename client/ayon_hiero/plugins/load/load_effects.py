@@ -287,7 +287,7 @@ class LoadEffects(load.LoaderPlugin):
 
         data_imprint = {
             object_name: {
-                "schema": "ayon:container-2.0",
+                "schema": "ayon:container-3.0",
                 "id": AVALON_CONTAINER_ID,
                 "name": str(name),
                 "namespace": str(namespace),
