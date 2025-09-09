@@ -384,6 +384,7 @@ class ClipLoader:
 
     active_bin = None
     data = dict()
+    active_track = None
 
     def __init__(self, cls, context, path, **options):
         """ Initialize object
@@ -433,9 +434,16 @@ class ClipLoader:
         else:
             self.active_sequence = lib.get_current_sequence()
 
-        if options.get("track"):
-            # if multiselection is set then use options track
-            self.active_track = options["track"]
+        # check if track already exists
+        matching_track = None
+        for _track in self.active_sequence.videoTracks():
+            if _track.name() == self.data["track_name"]:
+                matching_track = _track
+
+        # if multiselection is set then use options track
+        # in case it is existing track
+        if options.get("track") and matching_track:
+            self.active_track = matching_track
         else:
             self.active_track = lib.get_current_track(
                 self.active_sequence, self.data["track_name"])

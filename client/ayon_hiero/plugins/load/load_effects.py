@@ -2,7 +2,7 @@ import json
 from collections import OrderedDict
 
 from ayon_core.pipeline import (
-    AVALON_CONTAINER_ID,
+    AYON_CONTAINER_ID,
     load,
     get_representation_path,
 )
@@ -287,8 +287,8 @@ class LoadEffects(load.LoaderPlugin):
 
         data_imprint = {
             object_name: {
-                "schema": "ayon:container-2.0",
-                "id": AVALON_CONTAINER_ID,
+                "schema": "ayon:container-3.0",
+                "id": AYON_CONTAINER_ID,
                 "name": str(name),
                 "namespace": str(namespace),
                 "loader": str(loader),
