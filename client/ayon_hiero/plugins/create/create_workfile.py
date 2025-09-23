@@ -55,21 +55,23 @@ class CreateWorkfile(AutoCreator):
         Returns:
             dict. The data of the instance to be created.
         """
-        project_name = self.create_context.get_current_project_name()
-        folder_path = self.create_context.get_current_folder_path()
-        task_name = self.create_context.get_current_task_name()
-        host_name = self.create_context.host_name
-        variant = self.default_variant
 
+        project_entity = self.create_context.get_current_project_entity()
         folder_entity = self.create_context.get_current_folder_entity()
         task_entity = self.create_context.get_current_task_entity()
 
+        project_name = project_entity["name"]
+        folder_path = folder_entity["path"]
+        task_name = task_entity["name"]
+        host_name = self.create_context.host_name
+
         product_name = self.get_product_name(
-            project_name,
-            folder_entity,
-            task_entity,
-            variant,
-            host_name,
+            project_name=project_name,
+            project_entity=project_entity,
+            folder_entity=folder_entity,
+            task_entity=task_entity,
+            variant=variant,
+            host_name=host_name,
         )
 
         instance_data = {
