@@ -64,6 +64,7 @@ class CreateWorkfile(AutoCreator):
         folder_path = folder_entity["path"]
         task_name = task_entity["name"]
         host_name = self.create_context.host_name
+        variant = self.default_variant
 
         product_name = self.get_product_name(
             project_name=project_name,
