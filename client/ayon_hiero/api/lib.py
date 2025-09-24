@@ -711,7 +711,7 @@ try:
             # Add submission to Hiero module for retrieval in plugins.
             hiero.submission = self
             publish(hiero.ui.mainWindow())
-except Exception as e:
+except Exception:
     # TODO: find a proper way to detect if this is Hiero Player
     print("Hiero Player found. Ayon support is limited.")
 
