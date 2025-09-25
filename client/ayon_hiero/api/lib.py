@@ -700,16 +700,21 @@ def add_to_filemenu():
     PublishAction()
 
 
-class PyblishSubmission(hiero.exporters.FnSubmission.Submission):
+try:
+    class PyblishSubmission(hiero.exporters.FnSubmission.Submission):
 
-    def __init__(self):
-        hiero.exporters.FnSubmission.Submission.__init__(self)
+        def __init__(self):
+            hiero.exporters.FnSubmission.Submission.__init__(self)
 
-    def addToQueue(self):
-        from . import publish
-        # Add submission to Hiero module for retrieval in plugins.
-        hiero.submission = self
-        publish(hiero.ui.mainWindow())
+        def addToQueue(self):
+            from . import publish
+            # Add submission to Hiero module for retrieval in plugins.
+            hiero.submission = self
+            publish(hiero.ui.mainWindow())
+except Exception:
+    # TODO: find a proper way to detect if this is Hiero Player
+    print("Hiero Player found. Ayon support is limited.")
+
 
 
 def add_submission():
