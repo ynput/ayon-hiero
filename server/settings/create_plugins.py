@@ -22,7 +22,7 @@ def _product_variant_enum():
 def _product_type_enum():
     """Return a list of product type options."""
     return [
-        {"value": "plate", "label": "Plate product"},
+        {"value": "plate", "label": "Plate"},
     ]
 
 class CreateShotClipModels(BaseSettingsModel):

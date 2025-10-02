@@ -1,10 +1,9 @@
 import copy
 import json
 
-from ayon_hiero.api import constants, plugin, lib, tags
-
-from ayon_core.pipeline.create import CreatorError, CreatedInstance
-from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
+from ayon_core.lib import BoolDef, EnumDef, NumberDef, TextDef, UILabelDef
+from ayon_core.pipeline.create import CreatedInstance, CreatorError
+from ayon_hiero.api import constants, lib, plugin, tags
 
 try:
     from ayon_core.pipeline.create import ParentFlags
@@ -331,6 +330,8 @@ OTIO file.
 
         tokens_help = """\nUsable tokens:
     {_clip_}: name of used clip
+    {_filename_}: name of media file
+    {_filepath_}: path to media file
     {_track_}: name of parent track layer
     {_sequence_}: name of parent sequence (timeline)
 
@@ -457,7 +458,7 @@ OTIO file.
                 label="{productVariant}",
                 tooltip="Template for product variant token."
                         f"\n{tokens_help}",
-                default=presets.get("productVariantToken", "main"),
+                default=presets.get("productVariantToken", "Main"),
             ),
             TextDef(
                 "productNameToken",
