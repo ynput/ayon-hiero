@@ -2,6 +2,7 @@ import os
 import pyblish.api
 
 from ayon_core.pipeline import publish
+from ayon_core.pipeline import PublishError
 
 
 class ExtractThumbnail(publish.Extractor):
@@ -41,7 +42,24 @@ class ExtractThumbnail(publish.Extractor):
             track_item_name, thumb_frame, ".png")
         thumb_path = os.path.join(staging_dir, thumb_file)
 
-        thumbnail = track_item.thumbnail(thumb_frame, "colour").save(
+        # Hiero > 16.0 changed thumbnail default layer from "colour" to "rgb".
+        qimage = None
+        for layer_name in ("rgb", "colour"):
+            try:
+                qimage = track_item.thumbnail(thumb_frame, "rgb")
+                break
+
+            except RuntimeError:
+                continue
+
+        if qimage is None:
+            raise PublishError(
+                "Could not detect thumbnail layer from track item: "
+                f"{track_item}. This might happen when the edit comes "
+                "from a previous Hiero version."
+            )
+
+        thumbnail = qimage.save(
             thumb_path,
             format='png'
         )
