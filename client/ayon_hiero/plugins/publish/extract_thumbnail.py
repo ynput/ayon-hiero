@@ -2,7 +2,6 @@ import os
 import pyblish.api
 
 from ayon_core.pipeline import publish
-from ayon_core.pipeline import PublishError
 
 
 class ExtractThumbnail(publish.Extractor):
