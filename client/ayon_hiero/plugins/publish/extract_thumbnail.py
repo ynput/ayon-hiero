@@ -53,11 +53,12 @@ class ExtractThumbnail(publish.Extractor):
                 continue
 
         if qimage is None:
-            raise PublishError(
+            self.log.warning(
                 "Could not detect thumbnail layer from track item: "
                 f"{track_item}. This might happen when the edit comes "
                 "from a previous Hiero version."
             )
+            return
 
         thumbnail = qimage.save(
             thumb_path,
