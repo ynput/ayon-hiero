@@ -2,12 +2,11 @@ import os
 import re
 import uuid
 from copy import deepcopy
+from pathlib import Path
+from pprint import pformat
 
 import hiero
-
-from qtpy import QtWidgets, QtCore
 import qargparse
-
 from ayon_core.lib import Logger
 from ayon_core.pipeline import (
     Creator,
@@ -16,9 +15,10 @@ from ayon_core.pipeline import (
 )
 from ayon_core.pipeline.load import get_representation_path_from_context
 from ayon_core.settings import get_current_project_settings
+from qtpy import QtCore, QtWidgets
 
 from . import lib
-
+from .formatter import extended_format
 
 log = Logger.get_logger(__name__)
 
@@ -665,21 +665,26 @@ class PublishClip:
     tag_data = {}
 
     types = {
-        "shot": "shot",
-        "folder": "folder",
+        "folder1": "folder",
+        "folder2": "folder",
+        "folder3": "folder",
         "episode": "episode",
         "sequence": "sequence",
         "track": "sequence",
+        "shot": "shot",
     }
 
     # parents search pattern
-    parents_search_pattern = r"\{([a-z]*?)\}"
+    parents_search_pattern = r"\{([a-z1-9]*?)\}"
 
     # default templates for non-ui use
     rename_default = False
     hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
-    base_product_variant_default = "<track_name>"
+    base_product_variant_switch_default = "<track_name>"
+    base_product_name_switch_default = "fromAttributes"
+    base_product_variant_token_default = "Main"
+    base_product_name_token_default = "{productType}{productVariant}"
     review_source_default = None
     product_type_default = "plate"
     count_from_default = 10
@@ -692,9 +697,13 @@ class PublishClip:
         # renameHierarchy
         "hierarchy",
         # hierarchyData
-        "folder", "episode", "sequence", "track", "shot",
+        "folder1Token", "folder2Token", "folder3Token",
+        "episodeToken", "sequenceToken", "trackToken", "shotToken",
+        "productVariantToken", "productNameToken",
         # publish settings
-        "audio", "sourceResolution",
+        "exportAudio", "sourceResolution",
+        # product attributes
+        "productType", "productVariant", "productName",
         # shot attributes
         "workfileFrameStart", "handleStart", "handleEnd",
         # instance attributes data
@@ -733,6 +742,11 @@ class PublishClip:
         # get track name and index
         track_name = track_item.parent().name()
         self.track_name = str(track_name).replace(" ", "_")
+        media_source = track_item.source().mediaSource()
+        file_info = media_source.fileinfos().pop()
+        filepath = file_info.filename()
+        self.media_file_name = Path(filepath).name
+        self.media_file_path = filepath
         self.track_index = int(track_item.parent().trackIndex())
 
         # adding instance_data["productType"] into tag
@@ -744,6 +758,7 @@ class PublishClip:
 
         # use all populated default data to create all important attributes
         self._populate_attributes()
+        log.info(f"self.hierarchy_data: {pformat(self.hierarchy_data)}")
 
         # create parents with correct types
         self._create_parents()
@@ -752,7 +767,7 @@ class PublishClip:
 
         # solve track item data and add them to tag data
         self._convert_to_tag_data()
-
+        log.debug(f"self.tag_data: {pformat(self.tag_data)}")
         # if track name is in review track name and also if driving track name
         # is not in review track name: skip tag creation
         if (self.track_name in self.reviewable_source) and (
@@ -788,12 +803,19 @@ class PublishClip:
             "_sequence_": self.sequence_name,
             "_track_": self.track_name,
             "_clip_": self.ti_name,
+            "_filename_": self.media_file_name,
+            "_filepath_": self.media_file_path,
             "_trackIndex_": self.track_index,
             "_clipIndex_": self.ti_index
         }
 
     def _populate_attributes(self):
         """ Populate main object attributes. """
+        # publisher ui attribute inputs or default values if gui was not used
+        def get(key):
+            """Shorthand access for code readability"""
+            return self.pre_create_data.get(key)
+
         # track item frame range and parent track name for vertical sync check
         self.clip_in = int(self.track_item.timelineIn())
         self.clip_out = int(self.track_item.timelineOut())
@@ -803,11 +825,6 @@ class PublishClip:
         log.debug(
             "____ self.shot_num: {}".format(self.shot_num))
 
-        # publisher ui attribute inputs or default values if gui was not used
-        def get(key):
-            """Shorthand access for code readability"""
-            return self.pre_create_data.get(key)
-
         # ui_inputs data or default values if gui was not used
         self.rename = self.pre_create_data.get(
             "clipRename", self.rename_default)
@@ -815,8 +832,22 @@ class PublishClip:
         self.hierarchy = get("hierarchy") or self.hierarchy_default
         self.count_from = get("countFrom") or self.count_from_default
         self.count_steps = get("countSteps") or self.count_steps_default
-        self.base_product_variant = (
-            get("clipVariant") or self.base_product_variant_default)
+        self.base_product_variant_switch = (
+            get("productVariant")
+            or self.base_product_variant_switch_default
+        )
+        self.base_product_variant_token = (
+            get("productVariantToken")
+            or self.base_product_variant_token_default
+        )
+        self.base_product_name_switch = (
+            get("productName")
+            or self.base_product_name_switch_default
+        )
+        self.base_product_name_token = (
+            get("productNameToken")
+            or self.base_product_name_token_default
+        )
         self.product_type = get("productType") or self.product_type_default
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
@@ -826,18 +857,59 @@ class PublishClip:
         self.audio = get("audio") or False
 
         self.hierarchy_data = {
-            key: get(key) or self.track_item_default_data[key]
-            for key in ["folder", "episode", "sequence", "track", "shot"]
+            key.replace("Token", ""): get(key)
+            for key in [
+                "folder1Token",
+                "folder2Token",
+                "folder3Token",
+                "episodeToken",
+                "sequenceToken",
+                "trackToken",
+                "shotToken",
+                "productNameToken",
+                "productVariantToken",
+            ]
         }
 
-        # build product name from layer name
-        if self.base_product_variant == "<track_name>":
-            self.variant = self.track_name
+        # product variant switching
+        if self.base_product_variant_switch == "<track_name>":
+            self.product_variant = self.track_name
+        elif self.base_product_variant_switch == "<token>":
+            self.product_variant = self.base_product_variant_token
         else:
-            self.variant = self.base_product_variant
+            self.product_variant = self.base_product_variant_switch
 
-        # create product for publishing
-        self.product_name = f"{self.product_type}{self.variant.capitalize()}"
+        # product name switching
+        if self.base_product_name_switch == "fromAttributes":
+            self.product_name = (
+                f"{self.product_type}{self.product_variant.capitalize()}")
+        elif self.base_product_name_switch == "fromTemplate":
+            self.product_name = self.base_product_name_token
+
+        self.hierarchy_data.update({
+            "productName": self.product_name,
+            "productVariant": self.product_variant,
+            "productType": self.product_type
+        })
+
+        # first format expressions in values
+        for key, value in self.hierarchy_data.items():
+            _data = self.track_item_default_data.copy()
+
+            self.hierarchy_data[key] = extended_format(
+                value, _data, logger=log)
+        log.info(f"1 {pformat(self.hierarchy_data)}")
+        # second format by own keys
+        for key, value in self.hierarchy_data.items():
+            self.hierarchy_data[key] = extended_format(
+                value, self.hierarchy_data, logger=log)
+        log.info(f"2 {pformat(self.hierarchy_data)}")
+
+        # lets re-assign product related variables
+        # from formated hierarchy data
+        self.product_name = self.hierarchy_data["productName"]
+        self.product_variant = self.hierarchy_data["productVariant"]
+        self.product_type = self.hierarchy_data["productType"]
 
     def _replace_hash_to_expression(self, name, text):
         """ Replace hash with number in correct padding. """
@@ -908,7 +980,7 @@ class PublishClip:
                 hierarchy_data[_key] = self._replace_hash_to_expression(
                     _key, _value)
 
-            # fill up pythonic expresisons in hierarchy data
+            # make sure shot number is formatted correctly
             for _key, _value in hierarchy_data.items():
                 formatted_value = _value.format(**_data)
                 hierarchy_formatting_data[_key] = formatted_value
@@ -951,10 +1023,10 @@ class PublishClip:
                     f"{new_clip_name}{data_product_name}", [])
 
                 clip_product_name = self.product_name
-                variant = self.variant
+                variant = self.product_variant
 
                 # in case track name and product name is the same then add
-                if self.variant == self.track_name:
+                if self.product_variant == self.track_name:
                     clip_product_name = self.product_name
 
                 # add track index in case duplicity of names in hero data
@@ -1028,7 +1100,7 @@ class PublishClip:
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
             "productType": self.product_type,
-            "variant": self.variant,
+            "variant": self.product_variant,
         }
 
     def _convert_to_entity(self, src_type, template):
@@ -1041,9 +1113,12 @@ class PublishClip:
         )
         formatting_data = {}
         for _k, _v in self.hierarchy_data.items():
-            value = _v.format(
-                **self.track_item_default_data)
-            formatting_data[_k] = value
+            try:
+                value = _v.format(
+                    **self.track_item_default_data)
+                formatting_data[_k] = value
+            except KeyError:
+                pass
 
         return {
             "entity_type": folder_type,
