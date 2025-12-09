@@ -24,6 +24,10 @@ def _hiero_main_menubar():
         QtWidgets.QMenuBar
     )]
 
+    # OSX fix - hiero_window.children() can't find menubars
+    if not menubar:
+        menubar = [hiero_window.menuBar()]
+
     assert len(menubar) == 1, "Error, could not find menu bar!"
     return menubar[0]
 
