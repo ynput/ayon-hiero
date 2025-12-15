@@ -24,6 +24,7 @@ class CreateEditorialPackage(plugin.HieroCreator):
     identifier = "io.ayon.creators.hiero.editorial_pkg"
     label = "Editorial Package"
     product_type = "editorial_pkg"
+    product_base_type = "editorial_pkg"
     icon = "camera"
     defaults = ["Main"]
 
