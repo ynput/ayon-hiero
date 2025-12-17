@@ -45,7 +45,7 @@ class ExtractThumbnail(publish.Extractor):
         qimage = None
         for layer_name in ("rgb", "colour"):
             try:
-                qimage = track_item.thumbnail(thumb_frame, "rgb")
+                qimage = track_item.thumbnail(thumb_frame, layer_name)
                 break
 
             except RuntimeError:
