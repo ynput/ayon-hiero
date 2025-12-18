@@ -186,7 +186,20 @@ def extended_format(
         if not token:
             continue
         try:
-            token_formatted = token.format(**context)
+            # detect any slicing brackets in token via regex
+            slicing_pattern = r"\{[a-zA-Z_][a-zA-Z0-9_]*\[([^\]]+)\]\}"
+            slicing_match = re.search(slicing_pattern, token)
+            if slicing_match:
+                slicing = slicing_match.group(1)
+                slicing_str = f"[{slicing}]"
+                token_without_slicing = token.replace(slicing_str, "")
+                token_formatted = token_without_slicing.format(**context)
+                # now adds back the slicing string and apply it
+                token_formatted = f"'{token_formatted}'" + f"[{slicing}]"
+                token_formatted = eval(token_formatted)  # noqa: S307
+            else:
+                token_formatted = token.format(**context)
+            # if any slicing was used, then apply it into token_formatted
             output_string = output_string.replace(token, token_formatted)
         except (KeyError, AttributeError):
             # Skip tokens that cannot be formatted with the current context
