@@ -1,10 +1,9 @@
 import copy
 import json
 
-from ayon_hiero.api import constants, plugin, lib, tags
-
-from ayon_core.pipeline.create import CreatorError, CreatedInstance
-from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
+from ayon_core.lib import BoolDef, EnumDef, NumberDef, TextDef, UILabelDef
+from ayon_core.pipeline.create import CreatedInstance, CreatorError
+from ayon_hiero.api import constants, lib, plugin, tags
 
 try:
     from ayon_core.pipeline.create import ParentFlags
@@ -335,8 +334,14 @@ OTIO file.
 
         tokens_help = """\nUsable tokens:
     {_clip_}: name of used clip
+    {_filename_}: name of media file
+    {_filepath_}: path to media file
     {_track_}: name of parent track layer
-    {_sequence_}: name of parent sequence (timeline)"""
+    {_sequence_}: name of parent sequence (timeline)
+
+    Python expressions are supported for dynamic values.
+    e.g. `{'_'.join(_clip_.split('_')[:2]).upper()}`
+"""
 
         current_sequence = lib.get_current_sequence()
         if current_sequence is not None:
@@ -370,7 +375,7 @@ OTIO file.
                 label="Shot Parent Hierarchy",
                 tooltip="Parents folder for shot root folder, "
                         "Template filled with *Hierarchy Data* section",
-                default=presets.get("hierarchy", "{folder}/{sequence}"),
+                default=presets.get("hierarchy", "{folder1}/{sequence}"),
             ),
             BoolDef(
                 "clipRename",
@@ -383,7 +388,7 @@ OTIO file.
                 label="Clip Name Template",
                 tooltip="template for creating shot names, used for "
                         "renaming (use rename: on)",
-                default=presets.get("clipName", "{sequence}{shot}"),
+                default=presets.get("clipName", "{shot}"),
             ),
             NumberDef(
                 "countFrom",
@@ -400,39 +405,72 @@ OTIO file.
 
             # hierarchyData
             UILabelDef(
-                label=header_label("Shot Template Keywords")
+                label=header_label("Hierarchy related token definitions")
             ),
             TextDef(
-                "folder",
-                label="{folder}",
+                "folder1Token",
+                label="{folder1}",
                 tooltip="Name of folder used for root of generated shots.\n"
                         f"{tokens_help}",
-                default=presets.get("folder", "shots"),
+                default=presets.get("folder1Token", "shots"),
             ),
             TextDef(
-                "episode",
+                "folder2Token",
+                label="{folder2}",
+                tooltip="Name of additional folder.\n"
+                        f"{tokens_help}",
+                default=presets.get("folder2Token", ""),
+            ),
+            TextDef(
+                "folder3Token",
+                label="{folder3}",
+                tooltip="Name of additional folder.\n"
+                        f"{tokens_help}",
+                default=presets.get("folder3Token", ""),
+            ),
+            TextDef(
+                "episodeToken",
                 label="{episode}",
                 tooltip=f"Name of episode.\n{tokens_help}",
-                default=presets.get("episode", "ep01"),
+                default=presets.get("episodeToken", "ep01"),
             ),
             TextDef(
-                "sequence",
+                "sequenceToken",
                 label="{sequence}",
                 tooltip=f"Name of sequence of shots.\n{tokens_help}",
-                default=presets.get("sequence", "sq01"),
+                default=presets.get("sequenceToken", "sq01"),
             ),
             TextDef(
-                "track",
+                "trackToken",
                 label="{track}",
                 tooltip=f"Name of timeline track.\n{tokens_help}",
-                default=presets.get("track", "{_track_}"),
+                default=presets.get("trackToken", "{_track_}"),
             ),
             TextDef(
-                "shot",
+                "shotToken",
                 label="{shot}",
                 tooltip="Name of shot. '#' is converted to padded number."
                         f"\n{tokens_help}",
-                default=presets.get("shot", "sh###"),
+                default=presets.get("shotToken", "sh###"),
+            ),
+            # verticalSync
+            UILabelDef(
+                label=header_label("Product related token definitions")
+            ),
+            TextDef(
+                "productVariantToken",
+                label="{productVariant}",
+                tooltip="Template for product variant token."
+                        f"\n{tokens_help}",
+                default=presets.get("productVariantToken", "Main"),
+            ),
+            TextDef(
+                "productNameToken",
+                label="{productName}",
+                tooltip="Template for product name token."
+                        f"\n{tokens_help}",
+                default=presets.get(
+                    "productNameToken", "{productType}{productVariant}"),
             ),
 
             # verticalSync
@@ -444,7 +482,7 @@ OTIO file.
                 label="Enable Vertical Sync",
                 tooltip="Switch on if you want clips above "
                         "each other to share its attributes",
-                default=presets.get("vSyncOn", True),
+                default=presets.get("vSyncOn", False),
             ),
             EnumDef(
                 "vSyncTrack",
@@ -462,18 +500,37 @@ OTIO file.
                 label=header_label("Publish Settings")
             ),
             EnumDef(
-                "clipVariant",
+                "productVariant",
                 label="Product Variant",
                 tooltip="Chose variant which will be then used for "
                         "product name, if <track_name> "
                         "is selected, name of track layer will be used",
-                items=['<track_name>', 'main', 'bg', 'fg', 'bg', 'animatic'],
+                items=[
+                    {"value": "<track_name>", "label": "Inherited from a track name"},
+                    {"value": "<token>", "label": "From token definition"},
+                    {"value": "main", "label": "Main"},
+                    {"value": "bg", "label": "Bg"},
+                    {"value": "fg", "label": "Fg"},
+                    {"value": "animatic", "label": "Animatic"},
+                ],
+                default=presets.get("productVariant", "<track_name>"),
             ),
             EnumDef(
                 "productType",
                 label="Product Type",
                 tooltip="How the product will be used",
-                items=['plate', 'take'],
+                items=['plate'],
+                default=presets.get("productType", "plate"),
+            ),
+            EnumDef(
+                "productName",
+                label="Product Name",
+                tooltip="How product name will be generated",
+                items=[
+                    {"value": "fromAttributes", "label": "From attributes"},
+                    {"value": "fromTemplate", "label": "From template"}
+                ],
+                default=presets.get("productName", "fromAttributes"),
             ),
             EnumDef(
                 "reviewableSource",
@@ -487,16 +544,16 @@ OTIO file.
                 + gui_tracks,
             ),
             BoolDef(
-                "export_audio",
-                label="Include audio",
+                "exportAudio",
+                label="Include audio product",
                 tooltip="Process subsets with corresponding audio",
-                default=False,
+                default=presets.get("exportAudio", False),
             ),
             BoolDef(
                 "sourceResolution",
                 label="Source resolution",
                 tooltip="Is resolution taken from timeline or source?",
-                default=False,
+                default=presets.get("sourceResolution", False),
             ),
             # shotAttr
             UILabelDef(
@@ -537,7 +594,7 @@ OTIO file.
         for audio_track in self.sequence.audioTracks():
             audio_clips.extend(audio_track.items())
 
-        if not audio_clips and pre_create_data.get("export_audio"):
+        if not audio_clips and pre_create_data.get("exportAudio"):
             raise CreatorError(
                 "You must have audio in your active "
                 "timeline in order to export audio."
@@ -623,7 +680,7 @@ OTIO file.
             # desable audio creator if audio is not enabled
             all_creators[audio_creator_id] = (
                 _instance_data.get("heroTrack", False) and
-                pre_create_data.get("export_audio", False)
+                pre_create_data.get("exportAudio", False)
             )
 
             enabled_creators = tuple(
