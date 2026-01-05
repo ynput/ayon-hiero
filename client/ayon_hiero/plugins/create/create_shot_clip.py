@@ -180,6 +180,7 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
     """Shot product type creator class"""
     identifier = "io.ayon.creators.hiero.shot"
     product_type = "shot"
+    product_base_type = "shot"
     label = "Editorial Shot"
 
     def get_instance_attr_defs(self):
@@ -298,6 +299,7 @@ class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
     """Plate product type creator class"""
     identifier = "io.ayon.creators.hiero.plate"
     product_type = "plate"
+    product_base_type = "plate"
     label = "Editorial Plate"
 
 
@@ -305,6 +307,7 @@ class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     """Audio product type creator class"""
     identifier = "io.ayon.creators.hiero.audio"
     product_type = "audio"
+    product_base_type = "audio"
     label = "Editorial Audio"
 
 
@@ -314,6 +317,7 @@ class CreateShotClip(plugin.HieroCreator):
     identifier = "io.ayon.creators.hiero.clip"
     label = "Create Publishable Clip"
     product_type = "editorial"
+    product_base_type = "editorial"
     icon = "film"
     defaults = ["Main"]
 
