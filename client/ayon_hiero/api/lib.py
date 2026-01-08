@@ -349,7 +349,7 @@ def get_track_item_tags(track_item):
     # collect all tags which are not AYON tag
     returning_tag_data.extend(
         tag for tag in _tags
-        if tag.name() != AYON_TAG_NAME
+        if AYON_TAG_NAME not in tag.name()
     )
 
     return returning_tag_data
