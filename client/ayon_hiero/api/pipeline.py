@@ -109,13 +109,13 @@ def containerise(track_item,
     """Bundle Hiero's object into an assembly and imprint it with metadata
 
     Containerisation enables a tracking of version, author and origin
-    for loaded assets.
+    for loaded products.
 
     Arguments:
         track_item (hiero.core.TrackItem): object to imprint as container
         name (str): Name of resulting assembly
         namespace (str): Namespace under which to host container
-        context (dict): Asset information
+        context (dict): Context information
         loader (str, optional): Name of node used to produce this container.
 
     Returns:

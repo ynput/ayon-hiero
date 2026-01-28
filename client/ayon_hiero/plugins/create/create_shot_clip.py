@@ -788,6 +788,7 @@ OTIO file.
             "tag.sourceResolution": ("sourceResolution", bool),
             "tag.hierarchy": ("hierarchy", str),
             "tag.hierarchyData": ("hierarchyData", json),
+            # TODO: Asset keys should not be used anymore (remove legacy names)
             "tag.asset_name": ("folderName", str),
             "tag.asset": ("productName", str),
             "tag.active": ("active", bool),
