@@ -34,7 +34,7 @@ class LoadClip(phiero.SequenceLoader):
     clip_color_last = "green"
     clip_color = "red"
 
-    clip_name_template = "{asset}_{subset}_{representation}"
+    clip_name_template = "{folder[name]}_{product[name]}_{representation}"
 
     @classmethod
     def apply_settings(cls, project_settings):
@@ -58,14 +58,6 @@ class LoadClip(phiero.SequenceLoader):
         for option, value in plugin_settings.items():
             if option == "representations":
                 continue
-
-            if option == "clip_name_template":
-                # TODO remove the formatting replacement
-                value = (
-                    value
-                    .replace("{folder[name]}", "{asset}")
-                    .replace("{product[name]}", "{subset}")
-                )
 
             if option == "enabled" and value is False:
                 print("  - is disabled by preset")
