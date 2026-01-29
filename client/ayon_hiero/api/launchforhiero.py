@@ -19,13 +19,8 @@ def _hiero_main_window():
 def _hiero_main_menubar():
     """Retrieve the main menubar of the Hiero window"""
     hiero_window = _hiero_main_window()
-    menubar = [i for i in hiero_window.children() if isinstance(
-        i,
-        QtWidgets.QMenuBar
-    )]
 
-    assert len(menubar) == 1, "Error, could not find menu bar!"
-    return menubar[0]
+    return hiero_window.menuBar()
 
 
 def find_scripts_menu(title, parent):
