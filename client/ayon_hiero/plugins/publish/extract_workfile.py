@@ -22,8 +22,8 @@ class ExtractWorkfile(publish.Extractor):
         if "representations" not in instance.data:
             instance.data["representations"] = []
 
-        # asset = instance.context.data["folderPath"]
-        # asset_name = asset.split("/")[-1]
+        # folder_path: str = instance.context.data["folderPath"]
+        # folder_name: str = folder_path.split("/")[-1]
 
         active_timeline = hiero.ui.activeSequence()
         # project = active_timeline.project()
