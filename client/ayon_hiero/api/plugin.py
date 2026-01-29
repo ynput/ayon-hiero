@@ -410,8 +410,10 @@ class ClipLoader:
         # try to get value from options or evaluate key value for `load_to`
         self.new_sequence = options.get("newSequence") or bool(
             "New timeline" in options.get("load_to", ""))
-        self.clip_name_template = options.get(
-            "clipNameTemplate") or "{asset}_{subset}_{representation}"
+        self.clip_name_template = (
+            options.get("clipNameTemplate")
+            or "{folder[name]}_{product[name]}_{representation}"
+        )
         assert self._populate_data(), str(
             "Cannot Load selected data, look into database "
             "or call your supervisor")
@@ -452,7 +454,7 @@ class ClipLoader:
         """ Gets context and convert it to self.data
         data structure:
             {
-                "name": "assetName_productName_representationName"
+                "name": "folderName_productName_representationName"
                 "path": "path/to/file/created/by/get_repr..",
                 "binPath": "projectBinPath",
             }
