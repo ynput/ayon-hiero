@@ -284,11 +284,15 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                         ),
                         disabled=not current_review,
                     ),
-                    BoolDef(
+                    EnumDef(
                         "publish_effects",
                         label="Publish clip effects",
                         tooltip="Discover and publish clip effects",
-                        default=True,
+                        items=[
+                            {"value": "ignore_effects", "label": "Ignore Effects"},
+                            {"value": "publish_effects", "label": "Publish Effects"},
+                            {"value": "publish_only_effects", "label": "Publish Only Effects"},
+                        ],
                     ),
                 ]
             )
@@ -743,6 +747,14 @@ OTIO file.
         Returns:
             CreatedInstance: The newly created instance.
         """
+        # publish effects backward compatibility (YN-0378)
+        creator_attributes = data.get("creator_attributes", {})
+        if isinstance(creator_attributes.get("publish_effects"), bool):
+            if creator_attributes["publish_effects"]:
+                creator_attributes["publish_effects"] = "publish_effects"
+            else:
+                creator_attributes["publish_effects"] = "ignore_effects"
+
         creator = self.create_context.creators[creator_id]
         instance = creator.create(data, None)
         instance.transient_data["track_item"] = track_item
