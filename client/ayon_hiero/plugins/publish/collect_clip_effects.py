@@ -67,8 +67,8 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
 
         # Publish effect only mode, disable plate integration.
         if instance.data["creator_attributes"]["publish_effects"] == "publish_only_effects":
-            self.log.debug("Disable instance, only effects are requested.")
-            instance.data["integrate"] = False
+            self.log.debug("Remove instance, only effects are requested.")
+            instance.context.remove(instance)
 
         # skip any without effects
         if not effects:
@@ -155,7 +155,6 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
                 "family": product_type,
                 "families": [product_type],
                 "name": product_name + "_" + data["folderPath"],
-                "integrate": True,
                 "label": "{} - {}".format(
                     data["folderPath"], product_name
                 ),
