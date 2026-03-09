@@ -119,12 +119,14 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
         Return:
             CreatedInstance: The created instance object for the new shot.
         """
-        instance_data.update({
-            "newHierarchyIntegration": True,
-        })
-
+        instance_data["newHierarchyIntegration"] = True
+        product_type = instance_data.get("productType")
         new_instance = CreatedInstance(
-            self.product_type, instance_data["productName"], instance_data, self
+            product_base_type=self.product_base_type,
+            product_type=product_type or self.product_base_type,
+            product_name=instance_data["productName"],
+            data=instance_data,
+            creator=self,
         )
         self._add_instance_to_context(new_instance)
         new_instance.transient_data["has_promised_context"] = True
@@ -206,7 +208,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
         self.create_context.add_value_changed_callback(self._on_value_change)
 
     def _on_value_change(self, event):
-        if self.product_type != "plate":
+        if self.product_base_type != "plate":
             return
 
         for item in event["changes"]:
@@ -255,7 +257,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
             )
         ]
 
-        if self.product_type in ("audio", "plate"):
+        if self.product_base_type in ("audio", "plate"):
             instance_attributes.append(
                 BoolDef(
                     "review",
@@ -265,7 +267,7 @@ class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
                 )
             )
 
-        if self.product_type == "plate":
+        if self.product_base_type == "plate":
             # Review track visibility
             current_review = instance.creator_attributes.get("review", False)
 
@@ -355,19 +357,20 @@ OTIO file.
         else:
             gui_tracks = []
 
-        # Project settings might be applied to this creator via
-        # the inherited `Creator.apply_settings`
-        presets = self.presets
+        plate_product_type_items = self.presets["plate_product_type_items"]
+        if not plate_product_type_items:
+            plate_product_type_items = ["plate"]
 
         return [
-
-            BoolDef("use_selection",
-                    label="Use only selected clip(s).",
-                    tooltip=(
-                        "When enabled it restricts create process "
-                        "to selected clips."
-                    ),
-                    default=True),
+            BoolDef(
+                "use_selection",
+                label="Use only selected clip(s).",
+                tooltip=(
+                    "When enabled it restricts create process "
+                    "to selected clips."
+                ),
+                default=True
+            ),
 
             # renameHierarchy
             UILabelDef(
@@ -378,32 +381,32 @@ OTIO file.
                 label="Shot Parent Hierarchy",
                 tooltip="Parents folder for shot root folder, "
                         "Template filled with *Hierarchy Data* section",
-                default=presets.get("hierarchy", "{folder}/{sequence}"),
+                default=self.presets["hierarchy"],
             ),
             BoolDef(
                 "clipRename",
                 label="Rename clips",
                 tooltip="Renaming selected clips on fly",
-                default=presets.get("clipRename", False),
+                default=self.presets["clipRename"],
             ),
             TextDef(
                 "clipName",
                 label="Clip Name Template",
                 tooltip="template for creating shot names, used for "
                         "renaming (use rename: on)",
-                default=presets.get("clipName", "{sequence}{shot}"),
+                default=self.presets["clipName"],
             ),
             NumberDef(
                 "countFrom",
                 label="Count sequence from",
                 tooltip="Set where the sequence number starts from",
-                default=presets.get("countFrom", 10),
+                default=self.presets["countFrom"],
             ),
             NumberDef(
                 "countSteps",
                 label="Stepping number",
                 tooltip="What number is adding every new step",
-                default=presets.get("countSteps", 10),
+                default=self.presets["countSteps"],
             ),
 
             # hierarchyData
@@ -415,32 +418,32 @@ OTIO file.
                 label="{folder}",
                 tooltip="Name of folder used for root of generated shots.\n"
                         f"{tokens_help}",
-                default=presets.get("folder", "shots"),
+                default=self.presets["folder"],
             ),
             TextDef(
                 "episode",
                 label="{episode}",
                 tooltip=f"Name of episode.\n{tokens_help}",
-                default=presets.get("episode", "ep01"),
+                default=self.presets["episode"],
             ),
             TextDef(
                 "sequence",
                 label="{sequence}",
                 tooltip=f"Name of sequence of shots.\n{tokens_help}",
-                default=presets.get("sequence", "sq01"),
+                default=self.presets["sequence"],
             ),
             TextDef(
                 "track",
                 label="{track}",
                 tooltip=f"Name of timeline track.\n{tokens_help}",
-                default=presets.get("track", "{_track_}"),
+                default=self.presets["track"],
             ),
             TextDef(
                 "shot",
                 label="{shot}",
                 tooltip="Name of shot. '#' is converted to padded number."
                         f"\n{tokens_help}",
-                default=presets.get("shot", "sh###"),
+                default=self.presets["shot"],
             ),
 
             # verticalSync
@@ -452,7 +455,7 @@ OTIO file.
                 label="Enable Vertical Sync",
                 tooltip="Switch on if you want clips above "
                         "each other to share its attributes",
-                default=presets.get("vSyncOn", True),
+                default=self.presets["vSyncOn"],
             ),
             EnumDef(
                 "vSyncTrack",
@@ -462,7 +465,7 @@ OTIO file.
                 items=(
                     gui_tracks or [
                         {"value": None, "label": "< nothing to select> "}
-                        ]
+                    ]
                 ),
             ),
             # publishSettings
@@ -478,10 +481,10 @@ OTIO file.
                 items=['<track_name>', 'main', 'bg', 'fg', 'bg', 'animatic'],
             ),
             EnumDef(
-                "productType",
-                label="Product Type",
+                "plate_product_type",
+                label="Plate Product Type",
                 tooltip="How the product will be used",
-                items=['plate', 'take'],
+                items=plate_product_type_items,
             ),
             EnumDef(
                 "reviewableSource",
@@ -491,13 +494,12 @@ OTIO file.
                 items=[
                     {"value": None, "label": "< none >"},
                     {"value": "clip_media", "label": "[ Clip's media ]"},
-                ]
-                + gui_tracks,
+                ] + gui_tracks,
             ),
             BoolDef(
                 "export_audio",
                 label="Include audio",
-                tooltip="Process subsets with corresponding audio",
+                tooltip="Process products with corresponding audio",
                 default=False,
             ),
             BoolDef(
@@ -514,19 +516,19 @@ OTIO file.
                 "workfileFrameStart",
                 label="Workfiles Start Frame",
                 tooltip="Set workfile starting frame number",
-                default=presets.get("workfileFrameStart", 1001),
+                default=self.presets["workfileFrameStart"],
             ),
             NumberDef(
                 "handleStart",
                 label="Handle start (head)",
                 tooltip="Handle at start of clip",
-                default=presets.get("handleStart", 0),
+                default=self.presets["handleStart"],
             ),
             NumberDef(
                 "handleEnd",
                 label="Handle end (tail)",
                 tooltip="Handle at end of clip",
-                default=presets.get("handleEnd", 0),
+                default=self.presets["handleEnd"],
             ),
         ]
 
@@ -563,9 +565,9 @@ OTIO file.
 
         sorted_selected_track_items.extend(unsorted_selected_track_items)
 
-        shot_creator_id = "io.ayon.creators.hiero.shot"
-        audio_creator_id = "io.ayon.creators.hiero.audio"
-        plate_creator_id = "io.ayon.creators.hiero.plate"
+        shot_creator_id = HieroShotInstanceCreator.identifier
+        audio_creator_id = EditorialAudioInstanceCreator.identifier
+        plate_creator_id = EditorialPlateInstanceCreator.identifier
 
         # detect enabled creators for review, plate and audio
         all_creators = {
@@ -682,7 +684,10 @@ OTIO file.
                 # metadata recollection as publish time.
                 elif creator_id == plate_creator_id:
                     parenting_data = shot_instances[shot_creator_id]
+                    product_type = pre_create_data.get("plate_product_type")
                     sub_instance_data.update({
+                        "productType": product_type or "plate",
+                        "productBaseType": "plate",
                         "parent_instance_id": parenting_data["instance_id"],
                         "label": (
                             f"{sub_instance_data['folderPath']} "
@@ -700,6 +705,7 @@ OTIO file.
 
                 elif creator_id == audio_creator_id:
                     sub_instance_data["variant"] = "main"
+                    sub_instance_data["productBaseType"] = "audio"
                     sub_instance_data["productType"] = "audio"
                     sub_instance_data["productName"] = "audioMain"
 
@@ -779,8 +785,13 @@ OTIO file.
             "extract_audio": False,
         }
         for create_attr in self.get_pre_create_attr_defs():
-            if isinstance(create_attr.key, str):
-                instance_data[create_attr.key] = create_attr.default
+            key = create_attr.key
+            if not isinstance(key, str):
+                continue
+
+            if key == "plate_product_type":
+                key = "productType"
+            instance_data[key] = create_attr.default
 
         required_key_mapping = {
             "tag.audio": ("extract_audio", bool),
@@ -868,7 +879,7 @@ OTIO file.
             }
         })
 
-        shot_creator_id = "io.ayon.creators.hiero.shot"
+        shot_creator_id = HieroShotInstanceCreator.identifier
         creator = self.create_context.creators[shot_creator_id]
         instance = creator.create(sub_instance_data)
         instance.transient_data["track_item"] = track_item
@@ -879,11 +890,13 @@ OTIO file.
         # Create plate/audio instance
         if instance_data["extract_audio"]:
             sub_creators = (
-                "io.ayon.creators.hiero.plate",
-                "io.ayon.creators.hiero.audio"
+                EditorialPlateInstanceCreator.identifier,
+                EditorialAudioInstanceCreator.identifier
             )
         else:
-            sub_creators = ("io.ayon.creators.hiero.plate",)
+            sub_creators = (
+                EditorialPlateInstanceCreator.identifier,
+            )
 
         for sub_creator_id in sub_creators:
             sub_instance_data = instance_data.copy()
@@ -927,9 +940,14 @@ OTIO file.
         else:
             all_video_tracks = []
 
-        create_settings = self.project_settings["hiero"]["create"]
-        collect_settings = create_settings.get("CollectShotClip", {})
-        restrict_to_selection = collect_settings.get("collectSelectedInstance", False)
+        restrict_to_selection = (
+            self.project_settings
+            ["hiero"]
+            ["create"]
+            ["CollectShotClip"]
+            ["collectSelectedInstance"]
+        )
+
         current_selection = [
             item for item in lib.get_timeline_selection()
             if isinstance(item, hiero.core.TrackItem)  # get only clips
@@ -968,13 +986,20 @@ OTIO file.
             # Ensure that parent shot instance are enabled.
             # This can happen when vertical_align is enabled
             # but hero track is not part of the collected clips.
-            all_shot_ids = [inst.id for inst in instances if inst.data["productType"] == "shot"]
+            all_shot_ids = {
+                inst.id
+                for inst in instances
+                if inst.data["productBaseType"] == "shot"
+            }
 
             for inst in instances:
                 if inst.id in all_shot_ids:
                     continue
 
-                elif inst.data["active"] and inst.data["parent_instance_id"] not in all_shot_ids:
+                if (
+                    inst.data["active"]
+                    and inst.data["parent_instance_id"] not in all_shot_ids
+                ):
                     raise CreatorError(
                         "Incomplete selection: please select hero track"
                         f' for {inst.data["label"]} instance.'
