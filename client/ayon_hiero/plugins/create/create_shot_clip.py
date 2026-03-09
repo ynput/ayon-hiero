@@ -327,6 +327,12 @@ or updating already created from Hiero. Publishing will create
 OTIO file.
 """
     create_allow_thumbnail = False
+    presets = {}
+
+    def apply_settings(self, project_settings):
+        self.presets = (
+            project_settings["hiero"]["create"][self.__class__.__name__]
+        )
 
     def get_pre_create_attr_defs(self):
 

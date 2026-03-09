@@ -626,11 +626,6 @@ class HieroCreator(Creator):
     """
     settings_category = "hiero"
 
-    def __init__(self, *args, **kwargs):
-        super(Creator, self).__init__(*args, **kwargs)
-        self.presets = get_current_project_settings()[
-            "hiero"]["create"].get(self.__class__.__name__, {})
-
     def create(self, product_name, instance_data, pre_create_data):
         """Prepare data for new instance creation.
 
