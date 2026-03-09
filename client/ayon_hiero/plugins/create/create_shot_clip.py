@@ -3,14 +3,12 @@ import json
 
 from ayon_hiero.api import constants, plugin, lib, tags
 
-from ayon_core.pipeline.create import CreatorError, CreatedInstance
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
-
-try:
-    from ayon_core.pipeline.create import ParentFlags
-except ImportError:
-    # Parenting was added with 'https://github.com/ynput/ayon-core/pull/1395'
-    ParentFlags = None
+from ayon_core.pipeline.create import (
+    CreatorError,
+    CreatedInstance,
+    ParentFlags,
+)
 
 import hiero
 
