@@ -74,6 +74,7 @@ class CreateWorkfile(AutoCreator):
             task_entity=task_entity,
             variant=variant,
             host_name=host_name,
+            product_type=self.product_type,
         )
 
         instance_data = {
@@ -94,7 +95,12 @@ class CreateWorkfile(AutoCreator):
         self.log.info("Auto-creating workfile instance...")
         data = self._create_new_instance()
         current_instance = CreatedInstance(
-            self.product_type, data["productName"], data, self)
+            product_base_type=self.product_base_type,
+            product_type=self.product_type,
+            product_name=data["productName"],
+            data=data,
+            creator=self,
+        )
         self._add_instance_to_context(current_instance)
 
     def collect_instances(self):
@@ -103,8 +109,13 @@ class CreateWorkfile(AutoCreator):
         if not data:
             return
 
+        product_type = data.get("productType")
         instance = CreatedInstance(
-            self.product_type, data["productName"], data, self
+            product_base_type=self.product_base_type,
+            product_type=product_type or self.product_base_type,
+            product_name=data["productName"],
+            data=data,
+            creator=self,
         )
         self._add_instance_to_context(instance)
 
