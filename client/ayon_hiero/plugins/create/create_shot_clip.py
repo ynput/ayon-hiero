@@ -631,11 +631,10 @@ OTIO file.
                 pre_create_data.get("export_audio", False)
             )
 
-            enabled_creators = tuple(
-                cre for cre, enabled in all_creators.items() if enabled
-            )
             clip_instances = {}
-            for creator_id in enabled_creators:
+            for creator_id, enabled in all_creators.items():
+                if not enabled:
+                    continue
                 creator = self.create_context.creators[creator_id]
                 sub_instance_data = copy.deepcopy(_instance_data)
                 creator_attributes = sub_instance_data.setdefault(
