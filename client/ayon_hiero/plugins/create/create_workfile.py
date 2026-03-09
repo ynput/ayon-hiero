@@ -86,7 +86,7 @@ class CreateWorkfile(AutoCreator):
 
         return instance_data
 
-    def create(self, options=None):
+    def create(self):
         """Auto-create an instance by default."""
         instance_data = self.load_instance_data()
         if instance_data:
