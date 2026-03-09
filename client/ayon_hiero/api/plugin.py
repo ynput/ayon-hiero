@@ -15,7 +15,6 @@ from ayon_core.pipeline import (
     LoaderPlugin,
 )
 from ayon_core.pipeline.load import get_representation_path_from_context
-from ayon_core.settings import get_current_project_settings
 
 from . import lib
 
