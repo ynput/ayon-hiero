@@ -15,7 +15,6 @@ from ayon_core.pipeline import (
     LoaderPlugin,
 )
 from ayon_core.pipeline.load import get_representation_path_from_context
-from ayon_core.settings import get_current_project_settings
 
 from . import lib
 
@@ -610,6 +609,7 @@ class HiddenHieroCreator(HiddenCreator):
     """HiddenCreator class wrapper
     """
     settings_category = "hiero"
+    skip_discovery = True
 
     def collect_instances(self):
         pass
@@ -625,11 +625,7 @@ class HieroCreator(Creator):
     """Creator class wrapper
     """
     settings_category = "hiero"
-
-    def __init__(self, *args, **kwargs):
-        super(Creator, self).__init__(*args, **kwargs)
-        self.presets = get_current_project_settings()[
-            "hiero"]["create"].get(self.__class__.__name__, {})
+    skip_discovery = True
 
     def create(self, product_name, instance_data, pre_create_data):
         """Prepare data for new instance creation.
@@ -683,7 +679,6 @@ class PublishClip:
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
     base_product_variant_default = "<track_name>"
     review_source_default = None
-    product_type_default = "plate"
     count_from_default = 10
     count_steps_default = 10
     vertical_sync_default = False
@@ -819,7 +814,7 @@ class PublishClip:
         self.count_steps = get("countSteps") or self.count_steps_default
         self.base_product_variant = (
             get("clipVariant") or self.base_product_variant_default)
-        self.product_type = get("productType") or self.product_type_default
+        self.product_type = get("plate_product_type") or "plate"
         self.vertical_sync = get("vSyncOn") or self.vertical_sync_default
         self.driving_layer = get("vSyncTrack") or self.driving_layer_default
         self.driving_layer = self.driving_layer.replace(" ", "_")
@@ -838,7 +833,7 @@ class PublishClip:
         else:
             self.variant = self.base_product_variant
 
-        # create product for publishing
+        # create product name for publishing
         self.product_name = f"{self.product_type}{self.variant.capitalize()}"
 
     def _replace_hash_to_expression(self, name, text):
@@ -1030,6 +1025,7 @@ class PublishClip:
             "hierarchyData": hierarchy_formatting_data,
             "productName": self.product_name,
             "productType": self.product_type,
+            "productBaseType": "plate",
             "variant": self.variant,
         }
 

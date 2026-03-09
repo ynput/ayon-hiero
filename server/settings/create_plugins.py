@@ -46,6 +46,12 @@ class CreateShotClipModels(BaseSettingsModel):
         title="{shot}"
     )
 
+    plate_product_types: list[str] = SettingsField(
+        "plate_product_types",
+        default_factory=list,
+        title="Plate product type",
+    )
+
     vSyncOn: bool = SettingsField(
         False,
         title="Enable Vertical Sync",

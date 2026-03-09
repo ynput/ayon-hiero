@@ -23,8 +23,8 @@ class CreateEditorialPackage(plugin.HieroCreator):
 
     identifier = "io.ayon.creators.hiero.editorial_pkg"
     label = "Editorial Package"
-    product_type = "editorial_pkg"
     product_base_type = "editorial_pkg"
+    product_type = product_base_type
     icon = "camera"
     defaults = ["Main"]
 
@@ -84,11 +84,15 @@ class CreateEditorialPackage(plugin.HieroCreator):
             "review": pre_create_data["review"]
         }
 
+        product_type = instance_data.get("productType")
+        if not product_type:
+            product_type = self.product_base_type
         new_instance = CreatedInstance(
-            self.product_type,
-            product_name,
-            instance_data,
-            self
+            product_base_type=self.product_base_type,
+            product_type=product_type,
+            product_name=product_name,
+            data=instance_data,
+            creator=self,
         )
         self._add_instance_to_context(new_instance)
 
@@ -107,11 +111,15 @@ class CreateEditorialPackage(plugin.HieroCreator):
                     continue
 
                 instance_data = tags.get_tag_data(item)
+                product_type = instance_data.get("productType")
+                if not product_type:
+                    product_type = self.product_base_type
                 instance = CreatedInstance(
-                    self.product_type,
-                    instance_data["productName"],
-                    instance_data,
-                    self
+                    product_base_type=self.product_base_type,
+                    product_type=product_type,
+                    product_name=instance_data["productName"],
+                    data=instance_data,
+                    creator=self,
                 )
                 self._add_instance_to_context(instance)
 
