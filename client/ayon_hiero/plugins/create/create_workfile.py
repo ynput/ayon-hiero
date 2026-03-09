@@ -82,14 +82,6 @@ class CreateWorkfile(AutoCreator):
             "variant": variant,
             "productName": product_name,
         }
-        instance_data.update(self.get_dynamic_data(
-            variant,
-            task_name,
-            folder_entity,
-            project_name,
-            host_name,
-            False,
-        ))
 
         return instance_data
 
