@@ -21,7 +21,7 @@ class ExtractClipEffects(publish.Extractor):
             return
 
         product_name = instance.data.get("productName")
-        product_type = instance.data["productType"]
+        product_base_type = instance.data["productBaseType"]
 
         self.log.debug("creating staging dir")
         staging_dir = self.staging_dir(instance)
@@ -67,9 +67,7 @@ class ExtractClipEffects(publish.Extractor):
         version_data.update({
             "colorSpace": item.sourceMediaColourTransform(),
             "colorspaceScript": instance.context.data["colorspace"],
-            "families": [product_type, "plate"],
-            # TODO find out if 'subset' is needed (and 'productName')
-            "subset": product_name,
+            "families": [product_base_type, "plate"],
             "productName": product_name,
             "fps": instance.context.data["fps"]
         })
@@ -78,7 +76,7 @@ class ExtractClipEffects(publish.Extractor):
         representation = {
             'files': file,
             'stagingDir': staging_dir,
-            'name': product_type + ext.title(),
+            'name': product_base_type + ext.title(),
             'ext': ext
         }
         instance.data["representations"].append(representation)

@@ -11,7 +11,7 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
 
     Tag is expected to have metadata:
     {
-        "productType": "frame"
+        "productBaseType": "frame"
         "productName": "main"
     }
     """
@@ -70,7 +70,6 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
         return data
 
     def _create_frame_product_data_sequence(self, context):
-
         sequence_tags = []
         sequence = context.data["activeTimeline"]
 
@@ -90,16 +89,14 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
             if not tag_data:
                 continue
 
-            product_type = tag_data.get("productType")
-            if product_type is None:
-                product_type = tag_data.get("family")
-            if not product_type:
-                continue
+            product_base_types = tag_data.get("productBaseType")
+            if not product_base_types:
+                product_base_types = tag_data.get("productType")
+                if not product_base_types:
+                    product_base_types = tag_data.get("family")
 
-            if product_type != "frame":
-                continue
-
-            sequence_tags.append(tag_data)
+            if product_base_types == "frame":
+                sequence_tags.append(tag_data)
 
         self.log.debug("__ sequence_tags: {}".format(
             pformat(sequence_tags)
@@ -133,15 +130,17 @@ class CollectFrameTagInstances(pyblish.api.ContextPlugin):
 
     def _create_instances(self, product_data):
         # create instance per product
-        product_type = "image"
+        product_base_type = "image"
         for product_name, product_data in product_data.items():
             name = "frame" + product_name.title()
             data = {
                 "name": name,
                 "label": "{} {}".format(name, product_data["frames"]),
-                "productType": product_type,
-                "family": product_type,
-                "families": [product_type, "frame"],
+                # TODO add product types support
+                "productType": product_base_type,
+                "productBaseType": product_base_type,
+                "family": product_base_type,
+                "families": [product_base_type, "frame"],
                 "folderPath": product_data["folderPath"],
                 "productName": name,
                 "format": product_data["format"],
