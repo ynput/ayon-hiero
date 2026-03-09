@@ -581,7 +581,7 @@ def imprint(track_item, data=None):
     Examples:
         data = {
             'folderPath': '/shots/sq020sh0280',
-            'productType': 'render',
+            'productBaseType': 'render',
             'productName': 'productMain'
         }
     """
