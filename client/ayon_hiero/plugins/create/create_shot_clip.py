@@ -651,6 +651,7 @@ OTIO file.
                         {
                             "variant": "main",
                             "productType": "shot",
+                            "productBaseType": "shot",
                             "productName": "shotMain",
                             "label": (
                                 f"{sub_instance_data['folderPath']} shotMain"),
