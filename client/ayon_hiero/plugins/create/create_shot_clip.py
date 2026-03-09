@@ -328,7 +328,6 @@ Publishing clips/plate, audio for new shots to project
 or updating already created from Hiero. Publishing will create
 OTIO file.
 """
-    create_allow_thumbnail = False
     presets = {}
 
     def apply_settings(self, project_settings):
@@ -641,7 +640,6 @@ OTIO file.
                 sub_instance_data = copy.deepcopy(_instance_data)
                 creator_attributes = sub_instance_data.setdefault(
                     "creator_attributes", {})
-                shot_folder_path = sub_instance_data["folderPath"]
 
                 # Shot creation
                 if creator_id == shot_creator_id:
