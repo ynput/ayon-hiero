@@ -110,7 +110,7 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             )
         super()._add_instance_to_context(instance)
 
-    def create(self, instance_data, _):
+    def create(self, instance_data):
         """Return a new CreateInstance for new shot from Hiero.
 
         Args:
@@ -530,10 +530,8 @@ OTIO file.
             ),
         ]
 
-    def create(self, subset_name, instance_data, pre_create_data):
-        super(CreateShotClip, self).create(subset_name,
-                                           instance_data,
-                                           pre_create_data)
+    def create(self, product_name, instance_data, pre_create_data):
+        super().create(product_name, instance_data, pre_create_data)
 
         if len(self.selected) < 1:
             return
@@ -721,7 +719,7 @@ OTIO file.
                     if sub_instance_data.get("reviewableSource"):
                         creator_attributes["review"] = True
 
-                instance = creator.create(sub_instance_data, None)
+                instance = creator.create(sub_instance_data)
                 instance.transient_data["track_item"] = track_item
                 self._add_instance_to_context(instance)
                 instance_data_to_store = instance.data_to_store()
@@ -752,7 +750,7 @@ OTIO file.
             CreatedInstance: The newly created instance.
         """
         creator = self.create_context.creators[creator_id]
-        instance = creator.create(data, None)
+        instance = creator.create(data)
         instance.transient_data["track_item"] = track_item
         self._add_instance_to_context(instance)
         instances.append(instance)
@@ -872,7 +870,7 @@ OTIO file.
 
         shot_creator_id = "io.ayon.creators.hiero.shot"
         creator = self.create_context.creators[shot_creator_id]
-        instance = creator.create(sub_instance_data, None)
+        instance = creator.create(sub_instance_data)
         instance.transient_data["track_item"] = track_item
         self._add_instance_to_context(instance)
         clip_instances[shot_creator_id] = instance.data_to_store()
@@ -906,7 +904,7 @@ OTIO file.
                 }
             )
 
-            instance = creator.create(sub_instance_data, None)
+            instance = creator.create(sub_instance_data)
             instance.transient_data["track_item"] = track_item
             self._add_instance_to_context(instance)
             clip_instances[sub_creator_id] = instance.data_to_store()
