@@ -610,6 +610,7 @@ class HiddenHieroCreator(HiddenCreator):
     """HiddenCreator class wrapper
     """
     settings_category = "hiero"
+    skip_discovery = True
 
     def collect_instances(self):
         pass
@@ -625,6 +626,7 @@ class HieroCreator(Creator):
     """Creator class wrapper
     """
     settings_category = "hiero"
+    skip_discovery = True
 
     def create(self, product_name, instance_data, pre_create_data):
         """Prepare data for new instance creation.

@@ -97,6 +97,7 @@ CLIP_ATTR_DEFS = [
 class _HieroInstanceCreator(plugin.HiddenHieroCreator):
     """Wrapper class for clip types products.
     """
+    skip_discovery = True
 
     def _add_instance_to_context(self, instance):
         parent_id = instance.get("parent_instance_id")
@@ -199,6 +200,7 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
 class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
     """ Base clip product creator.
     """
+    skip_discovery = True
 
     def register_callbacks(self):
         self.create_context.add_value_changed_callback(self._on_value_change)
