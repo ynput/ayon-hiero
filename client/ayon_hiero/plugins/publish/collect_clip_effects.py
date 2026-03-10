@@ -151,6 +151,7 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             data.update({
                 "productName": product_name,
                 "productType": product_type,
+                "productBaseType": product_type,
                 "family": product_type,
                 "families": [product_type],
                 "name": product_name + "_" + data["folderPath"],
