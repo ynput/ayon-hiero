@@ -19,7 +19,7 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             self.log.info("Effects collection/publish is disabled for instance")
             return
 
-        if "audio" in instance.data["productType"]:
+        if instance.data["productType"] == "audio":
             self.log.info("Audio clip, effects publish is only supported for plates.")
             return
 

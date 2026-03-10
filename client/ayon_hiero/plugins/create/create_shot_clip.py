@@ -749,11 +749,11 @@ OTIO file.
         """
         # publish effects backward compatibility (YN-0378)
         creator_attributes = data.get("creator_attributes", {})
-        if isinstance(creator_attributes.get("publish_effects"), bool):
-            if creator_attributes["publish_effects"]:
-                creator_attributes["publish_effects"] = "publish_effects"
-            else:
-                creator_attributes["publish_effects"] = "ignore_effects"
+        publish_effects = creator_attributes.get("publish_effects")
+        if isinstance(publish_effects, bool):
+            creator_attributes["publish_effects"] = (
+                "publish_effects" if publish_effects else "ignore_effects"
+            )
 
         creator = self.create_context.creators[creator_id]
         instance = creator.create(data, None)
