@@ -15,22 +15,21 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
     effect_tracks = []
 
     def process(self, instance):
+        if instance.data["creator_attributes"]["publish_effects"] == "ignore_effects":
+            self.log.info("Effects collection/publish is disabled for instance")
+            return
+
+        if instance.data["productBaseType"] == "audio":
+            self.log.info("Audio clip, effects publish is only supported for plates.")
+            return
+
         product_base_type = "effect"
+
         effects = {}
         review = instance.data.get("review")
         review_track_index = instance.context.data.get("reviewTrackIndex")
         track_item = instance.data["trackItem"]
         product_name = instance.data["productName"]
-
-        if not instance.data["creator_attributes"]["publish_effects"]:
-            self.log.debug(
-                "Effects collection/publish is disabled for %s",
-                product_name,
-            )
-            return
-
-        if "audio" in instance.data["productBaseType"]:
-            return
 
         # frame range
         self.handle_start = instance.data["handleStart"]
@@ -67,8 +66,14 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
                 if effect:
                     effects.update(effect)
 
+        # Publish effect only mode, disable plate integration.
+        if instance.data["creator_attributes"]["publish_effects"] == "publish_only_effects":
+            self.log.debug("Remove instance, only effects are requested.")
+            instance.context.remove(instance)
+
         # skip any without effects
         if not effects:
+            self.log.info("No effects found for current clip.")
             return
 
         effects.update({"assignTo": product_name})
@@ -142,11 +147,8 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             product_name += category.capitalize()
 
             # create new instance and inherit data
-            data = {}
-            for key, value in instance.data.items():
-                if "clipEffectItems" in key:
-                    continue
-                data[key] = value
+            data = instance.data.copy()
+            _ = data.pop("clipEffectItems", None)
 
             data.update({
                 "productName": product_name,
