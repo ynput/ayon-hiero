@@ -47,9 +47,9 @@ class CreateShotClipModels(BaseSettingsModel):
     )
 
     plate_product_types: list[str] = SettingsField(
-        "plate_product_types",
         default_factory=list,
-        title="Plate product type",
+        title="Plate Product types",
+        description="Optional list of product types for plate products."
     )
 
     vSyncOn: bool = SettingsField(
