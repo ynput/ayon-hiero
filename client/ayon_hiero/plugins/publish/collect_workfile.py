@@ -8,7 +8,7 @@ class CollectWorkfile(pyblish.api.ContextPlugin):
 
     label = "Collect Workfile"
     hosts = ["hiero"]
-    order = pyblish.api.CollectorOrder - 0.49
+    order = pyblish.api.CollectorOrder - 0.5
 
     def process(self, instance):
 
