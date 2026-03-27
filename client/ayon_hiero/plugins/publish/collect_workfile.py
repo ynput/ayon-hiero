@@ -2,6 +2,8 @@ import pyblish.api
 
 import hiero
 
+from ayon_core.pipeline import registered_host
+
 
 class CollectWorkfile(pyblish.api.ContextPlugin):
     """Collect the current working file into context"""
@@ -11,10 +13,5 @@ class CollectWorkfile(pyblish.api.ContextPlugin):
     order = pyblish.api.CollectorOrder - 0.5
 
     def process(self, context):
-
-        active_timeline = hiero.ui.activeSequence()
-        project = active_timeline.project()
-
-        current_file = project.path()
-
-        context.data["currentFile"] = current_file
+        host = registered_host()
+        context.data["currentFile"] = host.get_current_workfile()
