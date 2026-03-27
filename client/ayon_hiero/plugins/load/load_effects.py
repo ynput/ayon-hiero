@@ -13,7 +13,8 @@ from ayon_core.lib import Logger
 class LoadEffects(load.LoaderPlugin):
     """Loading colorspace soft effect exported from nukestudio"""
 
-    product_types = {"effect"}
+    product_base_types = {"effect"}
+    product_types = product_base_types
     representations = {"*"}
     extension = {"json"}
 

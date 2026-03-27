@@ -16,7 +16,8 @@ import hiero.core
 class LoadEditorialPackage(load.LoaderPlugin):
     """Load editorial package to timeline.
     """
-    product_types = {"editorial_pkg"}
+    product_base_types = {"editorial_pkg"}
+    product_types = product_base_types
 
     representations = {"*"}
     extensions = {"otio"}

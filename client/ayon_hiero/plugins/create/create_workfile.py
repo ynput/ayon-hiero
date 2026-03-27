@@ -11,8 +11,8 @@ class CreateWorkfile(AutoCreator):
 
     identifier = "io.ayon.creators.hiero.workfile"
     label = "Workfile"
-    product_type = "workfile"
     product_base_type = "workfile"
+    product_type = product_base_type
     icon = "fa5.file"
 
     default_variant = "Main"
@@ -74,6 +74,7 @@ class CreateWorkfile(AutoCreator):
             task_entity=task_entity,
             variant=variant,
             host_name=host_name,
+            product_type=self.product_type,
         )
 
         instance_data = {
@@ -82,18 +83,10 @@ class CreateWorkfile(AutoCreator):
             "variant": variant,
             "productName": product_name,
         }
-        instance_data.update(self.get_dynamic_data(
-            variant,
-            task_name,
-            folder_entity,
-            project_name,
-            host_name,
-            False,
-        ))
 
         return instance_data
 
-    def create(self, options=None):
+    def create(self):
         """Auto-create an instance by default."""
         instance_data = self.load_instance_data()
         if instance_data:
@@ -102,7 +95,12 @@ class CreateWorkfile(AutoCreator):
         self.log.info("Auto-creating workfile instance...")
         data = self._create_new_instance()
         current_instance = CreatedInstance(
-            self.product_type, data["productName"], data, self)
+            product_base_type=self.product_base_type,
+            product_type=self.product_type,
+            product_name=data["productName"],
+            data=data,
+            creator=self,
+        )
         self._add_instance_to_context(current_instance)
 
     def collect_instances(self):
@@ -111,8 +109,13 @@ class CreateWorkfile(AutoCreator):
         if not data:
             return
 
+        product_type = data.get("productType")
         instance = CreatedInstance(
-            self.product_type, data["productName"], data, self
+            product_base_type=self.product_base_type,
+            product_type=product_type or self.product_base_type,
+            product_name=data["productName"],
+            data=data,
+            creator=self,
         )
         self._add_instance_to_context(instance)
 
