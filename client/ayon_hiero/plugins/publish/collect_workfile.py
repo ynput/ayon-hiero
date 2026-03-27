@@ -1,7 +1,4 @@
 import pyblish.api
-
-import hiero
-
 from ayon_core.pipeline import registered_host
 
 
