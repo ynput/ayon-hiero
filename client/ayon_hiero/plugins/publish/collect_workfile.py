@@ -10,11 +10,11 @@ class CollectWorkfile(pyblish.api.ContextPlugin):
     hosts = ["hiero"]
     order = pyblish.api.CollectorOrder - 0.5
 
-    def process(self, instance):
+    def process(self, context):
 
         active_timeline = hiero.ui.activeSequence()
         project = active_timeline.project()
 
         current_file = project.path()
 
-        instance.data["currentFile"] = current_file
+        context.data["currentFile"] = current_file
