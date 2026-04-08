@@ -1,13 +1,27 @@
 from ayon_server.settings import BaseSettingsModel, SettingsField
 
 
+def source_type_enum_resolver():
+    return [
+        {"value": "python", "label": "Python"},
+        {"value": "file", "label": "Python file (set filepath as command)"},
+    ]
+
+
 class ScriptsmenuSubmodel(BaseSettingsModel):
     """Item Definition"""
     _isGroup = True
 
     type: str = SettingsField(title="Type")
-    command: str = SettingsField(title="Command")
-    sourcetype: str = SettingsField(title="Source Type")
+    command: str = SettingsField(
+        title="Command",
+        widget="textarea",
+        syntax="python"
+    )
+    sourcetype: str = SettingsField(
+        title="Source Type",
+        enum_resolver=source_type_enum_resolver
+    )
     title: str = SettingsField(title="Title")
     tooltip: str = SettingsField(title="Tooltip")
 
