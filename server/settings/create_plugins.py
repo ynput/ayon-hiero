@@ -1,9 +1,33 @@
 from ayon_server.settings import BaseSettingsModel, SettingsField
 
 
+def _product_name_enum():
+    """Return a list of product name options."""
+    return [
+        {"value": "fromAttributes", "label": "From attributes"},
+        {"value": "fromTemplate", "label": "From template"},
+    ]
+
+def _product_variant_enum():
+    """Return a list of product variant options."""
+    return [
+        {"value": "<track_name>", "label": "Inherited from a track name"},
+        {"value": "<token>", "label": "From token definition"},
+        {"value": "main", "label": "Main"},
+        {"value": "bg", "label": "Bg"},
+        {"value": "fg", "label": "Fg"},
+        {"value": "animatic", "label": "Animatic"},
+    ]
+
+def _product_type_enum():
+    """Return a list of product type options."""
+    return [
+        {"value": "plate", "label": "Plate"},
+    ]
+
 class CreateShotClipModels(BaseSettingsModel):
     hierarchy: str = SettingsField(
-        "{folder}/{sequence}",
+        "{folder1}/{sequence}",
         title="Shot parent hierarchy",
         section="Shot Hierarchy And Rename Settings"
     )
@@ -12,7 +36,7 @@ class CreateShotClipModels(BaseSettingsModel):
         title="Rename clips"
     )
     clipName: str = SettingsField(
-        "{track}{sequence}{shot}",
+        "{shot}",
         title="Clip name template"
     )
     countFrom: int = SettingsField(
@@ -24,26 +48,42 @@ class CreateShotClipModels(BaseSettingsModel):
         title="Stepping number"
     )
 
-    folder: str = SettingsField(
+    folder1Token: str = SettingsField(
         "shots",
-        title="{folder}",
-        section="Shot Template Keywords"
+        title="{folder1}",
+        section="Hierarchy related token definitions"
     )
-    episode: str = SettingsField(
+    folder2Token: str = SettingsField(
+        "",
+        title="{folder2}",
+    )
+    folder3Token: str = SettingsField(
+        "",
+        title="{folder3}",
+    )
+    episodeToken: str = SettingsField(
         "ep01",
         title="{episode}"
     )
-    sequence: str = SettingsField(
+    sequenceToken: str = SettingsField(
         "sq01",
         title="{sequence}"
     )
-    track: str = SettingsField(
+    trackToken: str = SettingsField(
         "{_track_}",
         title="{track}"
     )
-    shot: str = SettingsField(
+    shotToken: str = SettingsField(
         "sh###",
         title="{shot}"
+    )
+    productVariantToken: str = SettingsField(
+        "Main",
+        title="{productVariant}"
+    )
+    productNameToken: str = SettingsField(
+        "{productType}{productVariant}",
+        title="{productName}"
     )
 
     vSyncOn: bool = SettingsField(
@@ -51,7 +91,30 @@ class CreateShotClipModels(BaseSettingsModel):
         title="Enable Vertical Sync",
         section="Vertical Synchronization Of Attributes"
     )
-
+    productVariant: str = SettingsField(
+        "<track_name>",
+        title="Product Variant",
+        enum_resolver=_product_variant_enum,
+        section="Publish Settings"
+    )
+    productType: str = SettingsField(
+        "plate",
+        title="Product Type",
+        enum_resolver=_product_type_enum,
+    )
+    productName: str = SettingsField(
+        "fromAttributes",
+        title="Product Name",
+        enum_resolver=_product_name_enum,
+    )
+    exportAudio: bool = SettingsField(
+        False,
+        title="Include audio product"
+    )
+    sourceResolution: bool = SettingsField(
+        False,
+        title="Source resolution"
+    )
     workfileFrameStart: int = SettingsField(
         1001,
         title="Workfiles Start Frame",
@@ -94,17 +157,26 @@ class CreatorPluginsSettings(BaseSettingsModel):
 DEFAULT_CREATE_SETTINGS = {
     "create": {
         "CreateShotClip": {
-            "hierarchy": "{folder}/{sequence}",
+            "hierarchy": "{folder1}/{sequence}",
             "clipRename": True,
-            "clipName": "{track}{sequence}{shot}",
+            "clipName": "{shot}",
             "countFrom": 10,
             "countSteps": 10,
-            "folder": "shots",
-            "episode": "ep01",
-            "sequence": "sq01",
-            "track": "{_track_}",
-            "shot": "sh###",
+            "folder1Token": "shots",
+            "folder2Token": "",
+            "folder3Token": "",
+            "episodeToken": "ep01",
+            "sequenceToken": "sq01",
+            "trackToken": "{_track_}",
+            "shotToken": "sh###",
+            "productVariantToken": "Main",
+            "productNameToken": "{productType}{productVariant}",
             "vSyncOn": False,
+            "productVariant": "<track_name>",
+            "productType": "plate",
+            "productName": "fromAttributes",
+            "sourceResolution": False,
+            "exportAudio": False,
             "workfileFrameStart": 1001,
             "handleStart": 10,
             "handleEnd": 10
