@@ -1,4 +1,5 @@
 import re
+import copy
 
 import pyblish.api
 
@@ -146,9 +147,16 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             product_name = "".join(product_name_split)
             product_name += category.capitalize()
 
-            # create new instance and inherit data
-            data = instance.data.copy()
-            _ = data.pop("clipEffectItems", None)
+            # create new effect instance inheriting instance data
+            inherit_data = {
+                key: value for key, value in instance.data.items()
+                if key not in (
+                    "clipEffectItems",
+                    "trackItem",
+                    "transientData",
+                )
+            }
+            data = copy.deepcopy(inherit_data)
 
             data.update({
                 "productName": product_name,
@@ -162,6 +170,8 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
                     data["folderPath"], product_name
                 ),
                 "effects": effects,
+                "trackItem": instance.data.get("trackItem"),
+                "transientData": instance.data.get("transientData", {}),
             })
 
             # create new instance

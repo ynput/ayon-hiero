@@ -1,7 +1,5 @@
 import pyblish.api
 
-from ayon_core.pipeline import registered_host
-
 from ayon_hiero.api import lib
 from ayon_hiero.api.otio import hiero_export
 
@@ -16,9 +14,6 @@ class CollectOTIOTimeline(pyblish.api.ContextPlugin):
     order = pyblish.api.CollectorOrder - 0.491
 
     def process(self, context):
-        host = registered_host()
-        current_file = host.get_current_workfile()
-
         otio_timeline = hiero_export.create_otio_timeline()
 
         active_timeline = hiero.ui.activeSequence()
@@ -31,7 +26,6 @@ class CollectOTIOTimeline(pyblish.api.ContextPlugin):
         context_data = {
             "activeProject": project,
             "activeTimeline": active_timeline,
-            "currentFile": current_file,
             "otioTimeline": otio_timeline,
             "colorspace": self.get_colorspace(project),
             "fps": fps,
