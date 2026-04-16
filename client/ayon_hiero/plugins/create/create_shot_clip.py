@@ -485,7 +485,7 @@ OTIO file.
                 "plate_product_type",
                 label="Plate Product Type",
                 tooltip="How the product will be used",
-                items=plate_product_type_items,
+                items=plate_product_types,
             ),
             EnumDef(
                 "reviewableSource",
