@@ -358,9 +358,9 @@ OTIO file.
         else:
             gui_tracks = []
 
-        plate_product_type_items = self.presets["plate_product_type_items"]
-        if not plate_product_type_items:
-            plate_product_type_items = ["plate"]
+        plate_product_types = self.presets["plate_product_types"]
+        if not plate_product_types:
+            plate_product_types = ["plate"]
 
         return [
             BoolDef(
