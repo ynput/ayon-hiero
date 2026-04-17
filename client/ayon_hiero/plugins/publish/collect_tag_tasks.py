@@ -16,17 +16,20 @@ class CollectClipTagTasks(api.InstancePlugin):
 
         tasks = {}
         for tag in tags:
-
             t_metadata = dict(tag.metadata())
             if t_metadata.get("tag.json_metadata"):
                 metadata = json.loads(t_metadata["tag.json_metadata"])
-                product_type = metadata.get("productType")
-                if product_type == "task":
+                product_base_type = metadata.get("productBaseType")
+                if not product_base_type:
+                    product_base_type = metadata.get("productType")
+
+                if product_base_type == "task":
                     task_type = metadata.get("type")
                     task_name = t_metadata.get("tag.label", "")
                     tasks[task_name] = {"type": task_type}
             else:
                 # backward compatiblity for older tags
+                # NOTE 'productBaseType' was added after 'json_metadata'
                 t_product_type = t_metadata.get("tag.productType")
                 if t_product_type is None:
                     t_product_type = t_metadata.get("tag.family", "")

@@ -24,12 +24,13 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             self.log.info("Audio clip, effects publish is only supported for plates.")
             return
 
-        product_type = "effect"
+        product_base_type = "effect"
+
         effects = {}
         review = instance.data.get("review")
         review_track_index = instance.context.data.get("reviewTrackIndex")
         track_item = instance.data["trackItem"]
-        product_name = instance.data.get("productName")
+        product_name = instance.data["productName"]
 
         # frame range
         self.handle_start = instance.data["handleStart"]
@@ -159,10 +160,11 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
 
             data.update({
                 "productName": product_name,
-                "productType": product_type,
-                "productBaseType": product_type,
-                "family": product_type,
-                "families": [product_type],
+                # TODO add support for product types
+                "productType": product_base_type,
+                "productBaseType": product_base_type,
+                "family": product_base_type,
+                "families": [product_base_type],
                 "name": product_name + "_" + data["folderPath"],
                 "label": "{} - {}".format(
                     data["folderPath"], product_name
