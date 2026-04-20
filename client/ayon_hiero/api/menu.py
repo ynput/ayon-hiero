@@ -165,15 +165,17 @@ def _settings_defs_to_scriptsmenu(settings_defs: list[dict]) -> list[dict]:
                 continue
 
             if item_type == "menu":
+                menu_def = definition["menu"]
                 menu_items = []
                 parent_list.append({
-                    "title": definition["title"],
+                    "title": menu_def["title"],
+                    "type": "menu",
                     "items": menu_items,
                 })
-                queue.append((menu_items, definition["menu"]))
+                queue.append((menu_items, menu_def["items"]))
                 continue
 
-            if item_type != "menu":
+            if item_type != "action":
                 log.warning(f"Unknown item type: '{item_type}'. Skipping.")
                 continue
 
@@ -187,8 +189,9 @@ def _settings_defs_to_scriptsmenu(settings_defs: list[dict]) -> list[dict]:
                     pass
 
             parent_list.append({
-                "title": definition["title"],
-                "tooltype": definition["tooltype"],
+                "type": "action",
+                "title": action_def["title"],
+                "tooltip": action_def["tooltip"],
                 "sourcetype": source_type,
                 "command": command,
             })
