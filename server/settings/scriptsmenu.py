@@ -23,7 +23,7 @@ def source_type_enum_resolver():
     ]
 
 
-class ScriptsActionModel(BaseSettingsModel):
+class ActionModel(BaseSettingsModel):
     """Action Definition"""
     title: str = SettingsField("", title="Title")
     tooltip: str = SettingsField("", title="Tooltip")
@@ -42,13 +42,9 @@ class ScriptsActionModel(BaseSettingsModel):
     file: str = SettingsField("", title="Filepath")
 
 
-def _menu_item_definition(*args, **kwargs):
-    return MenuItemDefinition(*args, **kwargs)
-
-
 class MenuItemDefinition(BaseSettingsModel):
     """Item Definition"""
-    _isGroup = True
+    _layout = "expanded"
 
     item_type: str = SettingsField(
         "action",
@@ -56,14 +52,22 @@ class MenuItemDefinition(BaseSettingsModel):
         enum_resolver=menu_item_type_enum_resolver,
         conditional_enum=True,
     )
-    action: ScriptsActionModel = ScriptsActionModel(
-        default_factory=ScriptsActionModel,
+    action: ActionModel = ActionModel(
+        default_factory=ActionModel,
+    )
+
+
+class MenuItemModel(BaseSettingsModel):
+    _layout = "expanded"
+    title: str = SettingsField("", title="Title")
+    items: list[MenuItemDefinition] = SettingsField(
+        default_factory=list,
     )
 
 
 class CustomMenuItemDefinition(BaseSettingsModel):
-    """Item Definition"""
-    _isGroup = True
+    """Custom item Definition"""
+    _layout = "expanded"
 
     item_type: str = SettingsField(
         "action",
@@ -71,11 +75,11 @@ class CustomMenuItemDefinition(BaseSettingsModel):
         enum_resolver=item_type_enum_resolver,
         conditional_enum=True,
     )
-    action: ScriptsActionModel = ScriptsActionModel(
-        default_factory=ScriptsActionModel,
+    action: ActionModel = ActionModel(
+        default_factory=ActionModel,
     )
-    menu: list[MenuItemDefinition] = SettingsField(
-        default_factory=list,
+    menu: MenuItemModel = SettingsField(
+        default_factory=MenuItemModel,
     )
 
 
