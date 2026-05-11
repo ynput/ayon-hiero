@@ -660,8 +660,6 @@ class PublishClip:
     Returns:
         hiero.core.TrackItem: hiero track item object with AYON tag
     """
-    tag_data = {}
-
     types = {
         "shot": "shot",
         "folder": "folder",
@@ -732,7 +730,7 @@ class PublishClip:
         self.track_name = str(track_name).replace(" ", "_")
         self.track_index = int(track_item.parent().trackIndex())
 
-        # adding instance_data["productType"] into tag
+        self.tag_data = {}
         if data:
             self.tag_data.update(data)
 
@@ -860,7 +858,7 @@ class PublishClip:
             hero_track = False
 
         # increasing steps by index of rename iteration
-        self.count_steps *= self.rename_index
+        count_steps = self.count_steps * self.rename_index
 
         hierarchy_formatting_data = {}
         hierarchy_data = deepcopy(self.hierarchy_data)
@@ -893,7 +891,7 @@ class PublishClip:
                 if self.rename_index == 0:
                     self.shot_num = self.count_from
                 else:
-                    self.shot_num = self.count_from + self.count_steps
+                    self.shot_num = self.count_from + count_steps
 
             # clip name sequence number
             _data.update({"shot": self.shot_num})
