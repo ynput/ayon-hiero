@@ -985,7 +985,7 @@ class PublishClip:
                     return tr.name()
 
         except re.error as error:
-            self.log.warning(
+            log.warning(
                 f"Invalid review track regex pattern "
                 f"'{regex_pattern}': {error}"
             )
