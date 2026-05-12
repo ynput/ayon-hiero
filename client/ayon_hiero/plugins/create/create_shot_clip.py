@@ -495,7 +495,17 @@ OTIO file.
                 items=[
                     {"value": None, "label": "< none >"},
                     {"value": "clip_media", "label": "[ Clip's media ]"},
+                    {
+                        "value": "review_track_regex_pattern",
+                        "label": "[ Review track regex pattern ]",
+                    },
                 ] + gui_tracks,
+            ),
+            TextDef(
+                "reviewTrackRegexPattern",
+                label="Review track regex pattern",
+                tooltip="Attempt to match track names against this regex pattern.",
+                default="<track_name>_ref",
             ),
             BoolDef(
                 "export_audio",

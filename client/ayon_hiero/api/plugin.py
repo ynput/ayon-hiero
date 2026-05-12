@@ -694,7 +694,7 @@ class PublishClip:
         # shot attributes
         "workfileFrameStart", "handleStart", "handleEnd",
         # instance attributes data
-        "reviewableSource",
+        "reviewableSource", "reviewTrackRegexPattern",
     }
 
     def __init__(
@@ -945,22 +945,52 @@ class PublishClip:
 
         # add only review related data if reviewable source is set
         if self.reviewable_source:
-            review_switch = True
             reviewable_source = self.reviewable_source
-            #
-            if self.vertical_sync and not hero_track:
-                review_switch = False
-                reviewable_source = False
 
-            if review_switch:
-                self.tag_data["review"] = True
-            else:
-                self.tag_data.pop("review", None)
+            # Track regex pattern, attempt a review track on each clip.
+            if reviewable_source == "review_track_regex_pattern":
+                reviewable_source = self._resolve_review_track_from_regex_pattern(
+                    track_name=self.track_item.parent().name(),
+                    regex_pattern=self.tag_data.get("reviewTrackRegexPattern", ""),
+                )
+                self.tag_data["reviewableSource"] = reviewable_source
+                self.tag_data.pop("reviewTrackRegexPattern", None)
+                return
+
+            # Only generate review on hero track clip.
+            if self.vertical_sync and not hero_track:
+                reviewable_source = None
 
             if reviewable_source:
+                self.tag_data["review"] = True
                 self.tag_data["reviewableSource"] = reviewable_source
             else:
+                self.tag_data.pop("review", None)
                 self.tag_data.pop("reviewableSource", None)
+
+    def _resolve_review_track_from_regex_pattern(
+        self,
+        track_name: str,
+        regex_pattern: str,
+    ) -> Optional[str]:
+        """Resolve a review track from a regex pattern."""
+        current_sequence = lib.get_current_sequence()
+        if current_sequence is None:
+            return None
+
+        resolved_pattern = regex_pattern.replace("<track_name>", track_name)
+        try:
+            for tr in current_sequence.videoTracks():
+                if re.search(resolved_pattern, tr.name()):
+                    return tr.name()
+
+        except re.error as error:
+            self.log.warning(
+                f"Invalid review track regex pattern "
+                f"'{regex_pattern}': {error}"
+            )
+
+        return None
 
     def _apply_vertical_sync_data(self, tag_instance_data: Dict[str, Any]) -> Dict[str, Any]:
         """
