@@ -937,12 +937,6 @@ class PublishClip:
         # add uuid to tag data
         self.tag_data["uuid"] = str(uuid.uuid4())
 
-        # add review track only to hero track
-        if hero_track and self.reviewable_source:
-            self.tag_data["reviewTrack"] = self.reviewable_source
-        else:
-            self.tag_data.update({"reviewTrack": None})
-
         # add only review related data if reviewable source is set
         if self.reviewable_source:
             reviewable_source = self.reviewable_source
