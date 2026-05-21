@@ -154,6 +154,7 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
                     "clipEffectItems",
                     "trackItem",
                     "transientData",
+                    "subtracks"
                 )
             }
             data = copy.deepcopy(inherit_data)
