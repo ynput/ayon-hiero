@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import os
 import sys
+import collections
 
 import hiero.core
 from hiero.ui import findMenuAction
@@ -148,11 +151,58 @@ def menu_install():
     )
 
 
+def _settings_defs_to_scriptsmenu(settings_defs: list[dict]) -> list[dict]:
+    """Convert settings definitions to scriptsmenu format"""
+    output = []
+    queue = collections.deque()
+    queue.append((output, settings_defs))
+    while queue:
+        parent_list, settings_defs = queue.popleft()
+        for definition in settings_defs:
+            item_type = definition["item_type"]
+            if item_type == "separator":
+                output.append({"type": "separator"})
+                continue
+
+            if item_type == "menu":
+                menu_def = definition["menu"]
+                menu_items = []
+                parent_list.append({
+                    "title": menu_def["title"],
+                    "type": "menu",
+                    "items": menu_items,
+                })
+                queue.append((menu_items, menu_def["items"]))
+                continue
+
+            if item_type != "action":
+                log.warning(f"Unknown item type: '{item_type}'. Skipping.")
+                continue
+
+            action_def = definition["action"]
+            source_type = action_def["source_type"]
+            command = action_def[source_type]
+            if source_type == "file":
+                try:
+                    command = command.format_map(os.environ)
+                except (KeyError, ValueError, TypeError):
+                    pass
+
+            parent_list.append({
+                "type": "action",
+                "title": action_def["title"],
+                "tooltip": action_def["tooltip"],
+                "sourcetype": source_type,
+                "command": command,
+            })
+
+    return output
+
+
 def add_scripts_menu():
     try:
         from . import launchforhiero
     except ImportError:
-
         log.warning(
             "Skipping studio.menu install, because "
             "'scriptsmenu' module seems unavailable."
@@ -162,14 +212,17 @@ def add_scripts_menu():
     # load configuration of custom menu
     project_settings = get_project_settings(get_current_project_name())
     config = project_settings["hiero"]["scriptsmenu"]["definition"]
-    _menu = project_settings["hiero"]["scriptsmenu"]["name"]
+    menu_title = project_settings["hiero"]["scriptsmenu"]["name"]
 
     if not config:
         log.warning("Skipping studio menu, no definition found.")
         return
 
     # run the launcher for Hiero menu
-    studio_menu = launchforhiero.main(title=_menu.title())
+    studio_menu = launchforhiero.main(title=menu_title)
 
     # apply configuration
-    studio_menu.build_from_configuration(studio_menu, config)
+    studio_menu.build_from_configuration(
+        studio_menu,
+        _settings_defs_to_scriptsmenu(config),
+    )

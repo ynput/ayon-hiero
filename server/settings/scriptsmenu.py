@@ -1,15 +1,87 @@
 from ayon_server.settings import BaseSettingsModel, SettingsField
 
 
-class ScriptsmenuSubmodel(BaseSettingsModel):
-    """Item Definition"""
-    _isGroup = True
+def item_type_enum_resolver():
+    return [
+        {"value": "action", "label": "Action"},
+        {"value": "menu", "label": "Menu"},
+        {"value": "separator", "label": "Separator"},
+    ]
 
-    type: str = SettingsField(title="Type")
-    command: str = SettingsField(title="Command")
-    sourcetype: str = SettingsField(title="Source Type")
-    title: str = SettingsField(title="Title")
-    tooltip: str = SettingsField(title="Tooltip")
+
+def menu_item_type_enum_resolver():
+    return [
+        {"value": "action", "label": "Action"},
+        {"value": "separator", "label": "Separator"},
+    ]
+
+
+def source_type_enum_resolver():
+    return [
+        {"value": "python", "label": "Python"},
+        {"value": "file", "label": "Python file (set filepath as command)"},
+    ]
+
+
+class ActionModel(BaseSettingsModel):
+    """Action Definition"""
+    title: str = SettingsField("", title="Title")
+    tooltip: str = SettingsField("", title="Tooltip")
+    source_type: str = SettingsField(
+        "file",
+        title="Source Type",
+        enum_resolver=source_type_enum_resolver,
+        conditional_enum=True,
+    )
+    python: str = SettingsField(
+        "",
+        title="Python",
+        widget="textarea",
+        syntax="python",
+    )
+    file: str = SettingsField("", title="Filepath")
+
+
+class MenuItemDefinition(BaseSettingsModel):
+    """Item Definition"""
+    _layout = "expanded"
+
+    item_type: str = SettingsField(
+        "action",
+        title="Type",
+        enum_resolver=menu_item_type_enum_resolver,
+        conditional_enum=True,
+    )
+    action: ActionModel = ActionModel(
+        default_factory=ActionModel,
+    )
+
+
+class MenuItemModel(BaseSettingsModel):
+    _layout = "expanded"
+    title: str = SettingsField("", title="Title")
+    items: list[MenuItemDefinition] = SettingsField(
+        default_factory=list,
+    )
+
+
+class CustomMenuItemDefinition(BaseSettingsModel):
+    """Custom item Definition"""
+    _layout = "expanded"
+
+    item_type: str = SettingsField(
+        "action",
+        title="Type",
+        enum_resolver=item_type_enum_resolver,
+        conditional_enum=True,
+    )
+    action: ActionModel = ActionModel(
+        default_factory=ActionModel,
+    )
+    menu: MenuItemModel = SettingsField(
+        default_factory=MenuItemModel,
+    )
+
 
 
 class ScriptsmenuSettings(BaseSettingsModel):
@@ -20,21 +92,25 @@ class ScriptsmenuSettings(BaseSettingsModel):
     - in api rename key `name` to `menu_name`
     """
     name: str = SettingsField(title="Menu name")
-    definition: list[ScriptsmenuSubmodel] = SettingsField(
+    definition: list[CustomMenuItemDefinition] = SettingsField(
         default_factory=list,
         title="Definition",
-        description="Scriptmenu Items Definition")
+        description="Scriptmenu Items Definition"
+    )
 
 
 DEFAULT_SCRIPTSMENU_SETTINGS = {
     "name": "Custom Tools",
     "definition": [
         {
-            "type": "action",
-            "sourcetype": "python",
-            "title": "Ayon Hiero Docs",
-            "command": "import webbrowser;webbrowser.open(url='https://ayon.ynput.io/docs/addon_hiero_artist')",  # noqa
-            "tooltip": "Open the Ayon Hiero user doc page"
+            "item_type": "action",
+            "action": {
+                "title": "AYON Hiero Docs",
+                "source_type": "python",
+                "tooltip": "Open the AYON Hiero user doc page",
+                "python": "import webbrowser\n\nwebbrowser.open(url='https://ayon.ynput.io/docs/addon_hiero_artist')",
+                "file": "",
+            }
         }
     ]
 }
