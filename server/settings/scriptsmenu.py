@@ -108,7 +108,7 @@ DEFAULT_SCRIPTSMENU_SETTINGS = {
                 "title": "AYON Hiero Docs",
                 "source_type": "python",
                 "tooltip": "Open the AYON Hiero user doc page",
-                "python": "import webbrowser\n\nwebbrowser.open(url='https://ayon.ynput.io/docs/addon_hiero_artist')",
+                "python": "import webbrowser\n\nwebbrowser.open(url='https://help.ayon.app/collections/1653741-hiero')",
                 "file": "",
             }
         }
