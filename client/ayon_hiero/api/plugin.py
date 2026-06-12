@@ -7,9 +7,8 @@ from typing import Dict, Any, Optional
 import hiero
 
 from qtpy import QtWidgets, QtCore
-import qargparse
 
-from ayon_core.lib import Logger
+from ayon_core.lib import Logger, BoolDef, EnumDef
 from ayon_core.pipeline import (
     Creator,
     HiddenCreator,
@@ -332,13 +331,13 @@ class SequenceLoader(LoaderPlugin):
     """
 
     options = [
-        qargparse.Boolean(
+        BoolDef(
             "handles",
             label="Include handles",
-            default=0,
+            default=False,
             help="Load with handles or without?"
         ),
-        qargparse.Choice(
+        EnumDef(
             "load_to",
             label="Where to load clips",
             items=[
@@ -348,7 +347,7 @@ class SequenceLoader(LoaderPlugin):
             default="Current timeline",
             help="Where do you want clips to be loaded?"
         ),
-        qargparse.Choice(
+        EnumDef(
             "load_how",
             label="How to load clips",
             items=[
