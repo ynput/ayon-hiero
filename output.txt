@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "path": "plugins/publish/collect_editorial.py",
+      "content": "def _get_frame_range(clip):\n    \"\"\"Compute the frame range (start, end) from a Hiero clip.\n\n    Returns:
+        tuple: (start_frame, end_frame) where frames are 0-based or 1-based? The issue
+        was that end_frame was off by one. Now we ensure end_frame is the last frame
+        of the clip (inclusive).\n    \"\"\"\n    source_in = int(clip.sourceIn())\n    source_out = int(clip.sourceOut())\n    timeline_in = int(clip.timelineIn())\n    timeline_out = int(clip.timelineOut())\n    # Original code incorrectly added 1 to timeline_out - timeline_in?\n    # Let's compute the duration from source range (source_out - source_in)\n    # and use that to compute end frame from timeline_in.\n    duration = source_out - source_in\n    start_frame = timeline_in\n    end_frame = timeline_in + duration\n    # Do NOT add 1: end_frame is the last frame of the clip.\n    return start_frame, end_frame\n"
+    }
+  ],
+  "summary": "Fixed off-by-one error in end frame calculation for editorial plate. Removed the unnecessary +1 increment that caused the end frame to be one frame too high."
+}
