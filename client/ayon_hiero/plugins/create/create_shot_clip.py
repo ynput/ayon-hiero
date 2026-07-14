@@ -185,7 +185,7 @@ class HieroShotInstanceCreator(_HieroInstanceCreator):
     label = "Editorial Shot"
 
     def get_instance_attr_defs(self):
-        instance_attributes = CLIP_ATTR_DEFS
+        instance_attributes = list(CLIP_ATTR_DEFS)
         instance_attributes.append(
             BoolDef(
                 "useSourceResolution",
@@ -479,7 +479,7 @@ OTIO file.
                 tooltip="Chose variant which will be then used for "
                         "product name, if <track_name> "
                         "is selected, name of track layer will be used",
-                items=['<track_name>', 'main', 'bg', 'fg', 'bg', 'animatic'],
+                items=['<track_name>', 'main', 'bg', 'fg', 'animatic'],
             ),
             EnumDef(
                 "plate_product_type",
@@ -495,7 +495,17 @@ OTIO file.
                 items=[
                     {"value": None, "label": "< none >"},
                     {"value": "clip_media", "label": "[ Clip's media ]"},
+                    {
+                        "value": "review_track_regex_pattern",
+                        "label": "[ Review track regex pattern ]",
+                    },
                 ] + gui_tracks,
+            ),
+            TextDef(
+                "reviewTrackRegexPattern",
+                label="Review track regex pattern",
+                tooltip="Attempt to match track names against this regex pattern.",
+                default="<track_name>_ref",
             ),
             BoolDef(
                 "export_audio",
@@ -539,7 +549,6 @@ OTIO file.
         if len(self.selected) < 1:
             return
 
-        self.log.info(self.selected)
         self.log.debug(f"Selected: {self.selected}")
 
         audio_clips = []
@@ -612,7 +621,7 @@ OTIO file.
             prev_tag = lib.get_trackitem_ayon_tag(track_item)
             if prev_tag:
                 prev_tag_data = tags.get_tag_data(prev_tag)
-                for creator_id, inst_data in prev_tag_data[_CONTENT_ID].items():
+                for creator_id, inst_data in prev_tag_data.get(_CONTENT_ID, {}).items():
                     creator = self.create_context.creators[creator_id]
                     prev_instances = [
                         inst for inst_id, inst
