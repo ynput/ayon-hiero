@@ -25,7 +25,7 @@ class LoaderPluginsModel(BaseSettingsModel):
 DEFAULT_LOADER_PLUGINS_SETTINGS = {
     "LoadClip": {
         "enabled": True,
-        "product_types": [
+        "product_base_types": [
             "render2d",
             "source",
             "plate",
