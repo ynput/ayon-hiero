@@ -15,7 +15,7 @@ class LoadClip(phiero.SequenceLoader):
     during conforming to project
     """
 
-    product_base_types = {"render2d", "source", "plate", "render", "review"}
+    product_base_types = {"*"}
     product_types = product_base_types
     representations = {"*"}
     extensions = set(
