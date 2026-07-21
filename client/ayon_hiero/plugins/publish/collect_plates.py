@@ -64,8 +64,6 @@ class CollectPlate(pyblish.api.InstancePlugin):
         if review_switch is True:
             if reviewable_source == "clip_media":
                 instance.data["families"].append("review")
-                # Mark instance for 'ExtractOTIOReview' in core
-                instance.data["families"].append("otio.clip.review")
                 instance.data.pop("reviewTrack", None)
             else:
                 instance.data["reviewTrack"] = reviewable_source
