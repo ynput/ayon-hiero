@@ -2,10 +2,10 @@ import pyblish.api
 from ayon_core.pipeline import registered_host
 
 
-class CollectWorkfile(pyblish.api.ContextPlugin):
+class CollectCurrentFile(pyblish.api.ContextPlugin):
     """Collect the current working file into context"""
 
-    label = "Collect Workfile"
+    label = "Collect Current File"
     hosts = ["hiero"]
     order = pyblish.api.CollectorOrder - 0.5
 
