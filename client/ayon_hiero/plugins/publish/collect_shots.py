@@ -34,7 +34,7 @@ class CollectShot(pyblish.api.InstancePlugin):
         Args:
             instance (obj): The publishing instance.
         """
-        # Mark instance for 'CollectOtioRanges'
+        # Mark instance for 'CollectOTIORanges'
         instance.data["families"].append("otio.clip.ranges")
 
         context = instance.context
