@@ -1319,28 +1319,38 @@ def set_context_favorites(favorites=None) -> None:
 def set_favorites() -> None:
     """Adding favorite folders to nuke's browser"""
     work_dir = os.getenv("AYON_WORKDIR")
-    folder_path = get_current_folder_path()
+    
+    # Use workdir from current workfile
+    host = registered_host()
+    workfile_path = os.path.normpath(host.get_current_workfile())
+    if workfile_path:
+        work_dir = os.path.dirname(workfile_path)
+        
+    # Escape backslashes on windows
+    if platform.system().lower() == "windows":
+        work_dir = work_dir.replace("\\", "/")
+    
+    context = host.get_current_context()
+    project_name = context["project_name"]
+    folder_path = context["folder_path"]
     folder_name = folder_path.split("/")[-1]
-    favorite_items = OrderedDict()
-    project_name = get_current_project_name()
-    # project
-    # get project's root and split to parts
-    projects_root = os.path.normpath(
-        work_dir.split(project_name)[0])
-    # add project name
-    project_dir = os.path.join(projects_root, project_name) + "/"
-    # add to favorites
-    favorite_items.update({"Project dir": project_dir.replace("\\", "/")})
 
-    # folder
-    folder_root = os.path.normpath(work_dir.split(
-        folder_name)[0])
-    # add folder name
-    folder_dir = os.path.join(folder_root, folder_name) + "/"
-    # add to favorites
-    favorite_items.update({"Shot dir": folder_dir.replace("\\", "/")})
+    # Split workdir to parts by project name
+    projects_root = work_dir.split(project_name)[0]
+    project_dir = f"{projects_root}{project_name}/"
 
-    # workdir
-    favorite_items.update({"Work dir": work_dir.replace("\\", "/")})
+    folder_root = work_dir.split(folder_name)[0]
+    folder_dir = f"{folder_root}{folder_name}/"    
 
-    set_context_favorites(favorite_items)
+    icon_path = resources.get_resource("icons", "folder-favorite.png")
+    for name, path in (
+        ("Shot dir", folder_dir),
+        ("Work dir", work_dir),
+        ("Project dir", project_dir),
+    ):
+        nuke.addFavoriteDir(
+            name=name,
+            directory=path,
+            type=nuke.IMAGE | nuke.SCRIPT,
+            icon=icon_path,
+        )
