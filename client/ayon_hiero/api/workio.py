@@ -62,7 +62,10 @@ def open_file(filepath):
 
 
 def current_file():
-    current_file = hiero.core.projects()[-1].path()
+    projects = hiero.core.projects()
+    if not projects:
+        return None
+    current_file = projects[-1].path()
     if not current_file:
         return None
     return os.path.normpath(current_file)
