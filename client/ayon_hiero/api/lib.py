@@ -1300,22 +1300,6 @@ def get_main_window():
     return _CTX.parent_gui
 
 
-def set_context_favorites(favorites=None) -> None:
-    """Adding favorite folders to nuke's browser
-
-    Args:
-        favorites (dict): couples of {name:path}
-    """
-    favorites = favorites or {}
-    icon_path = resources.get_resource("icons", "folder-favorite.png")
-    for name, path in favorites.items():
-        nuke.addFavoriteDir(
-            name=name,
-            directory=path,
-            type=nuke.IMAGE | nuke.SCRIPT,
-            icon=icon_path)
-
-
 def set_favorites() -> None:
     """Adding favorite folders to nuke's browser"""
     work_dir = os.getenv("AYON_WORKDIR")
