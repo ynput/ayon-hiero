@@ -1324,9 +1324,8 @@ def set_favorites() -> None:
     # Use workdir from current workfile
     host = registered_host()
     current_file = host.get_current_workfile()
-    if current_file is not None:
+    if current_file:
         work_dir = os.path.dirname(current_file)
-
     # Escape backslashes on windows
     if platform.system().lower() == "windows":
         work_dir = work_dir.replace("\\", "/")
