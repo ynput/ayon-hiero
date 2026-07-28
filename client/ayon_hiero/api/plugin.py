@@ -1011,7 +1011,7 @@ class PublishClip:
             variant = self.variant
 
             # If hero clip product name matches this clip's, append track index
-            if clip_product_name in data_product_name:
+            if clip_product_name == data_product_name:
                 clip_product_name = f"{clip_product_name}{self.track_index}"
                 variant = f"{variant}{self.track_index}"
 
