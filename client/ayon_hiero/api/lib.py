@@ -1325,8 +1325,7 @@ def set_favorites() -> None:
     host = registered_host()
     current_file = host.get_current_workfile()
     if current_file is not None:
-        workfile_path = os.path.normpath(current_file)
-        work_dir = os.path.dirname(workfile_path)
+        work_dir = os.path.dirname(current_file)
 
     # Escape backslashes on windows
     if platform.system().lower() == "windows":
