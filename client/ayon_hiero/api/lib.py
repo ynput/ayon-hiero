@@ -1323,9 +1323,11 @@ def set_favorites() -> None:
 
     # Use workdir from current workfile
     host = registered_host()
-    workfile_path = os.path.normpath(host.get_current_workfile())
-    if workfile_path:
-        work_dir = os.path.dirname(workfile_path)
+    current_file = host.get_current_workfile()
+    if current_file is not None:
+        workfile_path = os.path.normpath(current_file)
+        if workfile_path:
+            work_dir = os.path.dirname(workfile_path)
 
     # Escape backslashes on windows
     if platform.system().lower() == "windows":
@@ -1335,7 +1337,6 @@ def set_favorites() -> None:
     project_name = context["project_name"]
     folder_path = context["folder_path"]
     folder_name = folder_path.split("/")[-1]
-    print(f"Setting favorites for project: {project_name}, folder: {folder_name}")
 
     # Split workdir to parts by project name
     projects_root = work_dir.split(project_name)[0]
@@ -1345,13 +1346,11 @@ def set_favorites() -> None:
     folder_dir = f"{folder_root}{folder_name}/"
 
     icon_path = resources.get_resource("icons", "folder-favorite.png")
-    print("Adding favorite folders to nuke's browser:")
     for name, path in (
         ("Shot dir", folder_dir),
         ("Work dir", work_dir),
         ("Project dir", project_dir),
     ):
-        print(f"  {name}: {path}")
         nuke.addFavoriteDir(
             name=name,
             directory=path,
