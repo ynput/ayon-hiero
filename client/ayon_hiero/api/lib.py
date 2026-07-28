@@ -1348,6 +1348,10 @@ def set_favorites() -> None:
         ("Work dir", work_dir),
         ("Project dir", project_dir),
     ):
+        # This only adds the favorite directory to the "Import File(s)"
+        # and "Import Folder(s)" menus. It does not impact "Import EDL"
+        # nor "Import OTIO" as those are handled natively by Hiero with
+        # no public API.
         nuke.addFavoriteDir(
             name=name,
             directory=path,
