@@ -1300,9 +1300,24 @@ def get_main_window():
 
 
 def set_favorites() -> None:
-    """Adding favorite folders to nuke's browser
-    This only works when specific templates are used for workfiles and folders,
-    otherwise it will not be able to find the correct paths.
+    """Add context-related favorites to Nuke's file browser.
+
+    Favorites are derived from ``AYON_WORKDIR`` (or the currently opened
+    workfile path) and split into:
+    - project directory
+    - folder directory
+    - work directory
+
+    Important limitations:
+    - Project root detection assumes ``project_name`` is present in the path.
+        If the project name is missing, or appears in an unexpected position,
+        derived project paths may be incorrect.
+    - Folder root detection assumes ``folder_name`` is present and uniquely
+        identifiable in the path. If the folder name is missing or repeated,
+        derived folder paths may be incorrect.
+
+    In short, path derivation is template-dependent and works best when the
+    current context tokens are explicitly represented in the work directory.
     """
     work_dir = os.getenv("AYON_WORKDIR")
 
@@ -1320,6 +1335,7 @@ def set_favorites() -> None:
     project_name = context["project_name"]
     folder_path = context["folder_path"]
     folder_name = folder_path.split("/")[-1]
+    print(f"Setting favorites for project: {project_name}, folder: {folder_name}")
 
     # Split workdir to parts by project name
     projects_root = work_dir.split(project_name)[0]
@@ -1329,11 +1345,13 @@ def set_favorites() -> None:
     folder_dir = f"{folder_root}{folder_name}/"
 
     icon_path = resources.get_resource("icons", "folder-favorite.png")
+    print("Adding favorite folders to nuke's browser:")
     for name, path in (
         ("Shot dir", folder_dir),
         ("Work dir", work_dir),
         ("Project dir", project_dir),
     ):
+        print(f"  {name}: {path}")
         nuke.addFavoriteDir(
             name=name,
             directory=path,
