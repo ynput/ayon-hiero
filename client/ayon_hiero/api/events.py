@@ -8,7 +8,8 @@ from .lib import (
     sync_avalon_data_to_workfile,
     launch_workfiles_app,
     before_project_save,
-    apply_colorspace_project
+    apply_colorspace_project,
+    set_favorites,
 )
 from .tags import add_tags_to_workfile
 from .menu import update_menu_task_label
@@ -18,6 +19,8 @@ log = Logger.get_logger(__name__)
 
 def startupCompleted(event):
     log.info("startup competed event...")
+    # create favorites in nuke's browser
+    set_favorites()
     return
 
 
@@ -111,7 +114,7 @@ def register_hiero_events():
     #     "kAfterProjectClose", afterProjectClosed)
     #
     # hiero.core.events.registerInterest("kShutdown", shutDown)
-    # hiero.core.events.registerInterest("kStartup", startupCompleted)
+    hiero.core.events.registerInterest("kStartup", startupCompleted)
 
     # INFO: was disabled because it was slowing down timeline operations
     # hiero.core.events.registerInterest(

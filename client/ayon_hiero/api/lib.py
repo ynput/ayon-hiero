@@ -12,17 +12,21 @@ import json
 import ast
 import secrets
 import hiero
+import nuke
 
+from collections import OrderedDict
 from qtpy import QtWidgets, QtCore
 import ayon_api
 from qtpy import QtXml
 
+from ayon_core import resources
 from ayon_core.settings import get_project_settings
 from ayon_core.pipeline import (
     Anatomy,
     get_current_project_name,
     AYON_INSTANCE_ID,
     AVALON_INSTANCE_ID,
+    get_current_folder_path,
 )
 from ayon_core.pipeline.load import filter_containers
 from ayon_core.lib import Logger
@@ -1294,3 +1298,49 @@ def get_main_window():
                            widget.metaObject().className() == name)
         _CTX.parent_gui = main_window
     return _CTX.parent_gui
+
+
+def set_context_favorites(favorites=None) -> None:
+    """Adding favorite folders to nuke's browser
+
+    Args:
+        favorites (dict): couples of {name:path}
+    """
+    favorites = favorites or {}
+    icon_path = resources.get_resource("icons", "folder-favorite.png")
+    for name, path in favorites.items():
+        nuke.addFavoriteDir(
+            name=name,
+            directory=path,
+            type=nuke.IMAGE | nuke.SCRIPT,
+            icon=icon_path)
+
+
+def set_favorites() -> None:
+    """Adding favorite folders to nuke's browser"""
+    work_dir = os.getenv("AYON_WORKDIR")
+    folder_path = get_current_folder_path()
+    folder_name = folder_path.split("/")[-1]
+    favorite_items = OrderedDict()
+    project_name = get_current_project_name()
+    # project
+    # get project's root and split to parts
+    projects_root = os.path.normpath(
+        work_dir.split(project_name)[0])
+    # add project name
+    project_dir = os.path.join(projects_root, project_name) + "/"
+    # add to favorites
+    favorite_items.update({"Project dir": project_dir.replace("\\", "/")})
+
+    # folder
+    folder_root = os.path.normpath(work_dir.split(
+        folder_name)[0])
+    # add folder name
+    folder_dir = os.path.join(folder_root, folder_name) + "/"
+    # add to favorites
+    favorite_items.update({"Shot dir": folder_dir.replace("\\", "/")})
+
+    # workdir
+    favorite_items.update({"Work dir": work_dir.replace("\\", "/")})
+
+    set_context_favorites(favorite_items)
