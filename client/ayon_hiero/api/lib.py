@@ -14,7 +14,6 @@ import secrets
 import hiero
 import nuke
 
-from collections import OrderedDict
 from qtpy import QtWidgets, QtCore
 import ayon_api
 from qtpy import QtXml
@@ -26,7 +25,7 @@ from ayon_core.pipeline import (
     get_current_project_name,
     AYON_INSTANCE_ID,
     AVALON_INSTANCE_ID,
-    get_current_folder_path,
+    registered_host,
 )
 from ayon_core.pipeline.load import filter_containers
 from ayon_core.lib import Logger
@@ -1301,19 +1300,22 @@ def get_main_window():
 
 
 def set_favorites() -> None:
-    """Adding favorite folders to nuke's browser"""
+    """Adding favorite folders to nuke's browser
+    This only works when specific templates are used for workfiles and folders,
+    otherwise it will not be able to find the correct paths.
+    """
     work_dir = os.getenv("AYON_WORKDIR")
-    
+
     # Use workdir from current workfile
     host = registered_host()
     workfile_path = os.path.normpath(host.get_current_workfile())
     if workfile_path:
         work_dir = os.path.dirname(workfile_path)
-        
+
     # Escape backslashes on windows
     if platform.system().lower() == "windows":
         work_dir = work_dir.replace("\\", "/")
-    
+
     context = host.get_current_context()
     project_name = context["project_name"]
     folder_path = context["folder_path"]
@@ -1324,7 +1326,7 @@ def set_favorites() -> None:
     project_dir = f"{projects_root}{project_name}/"
 
     folder_root = work_dir.split(folder_name)[0]
-    folder_dir = f"{folder_root}{folder_name}/"    
+    folder_dir = f"{folder_root}{folder_name}/"
 
     icon_path = resources.get_resource("icons", "folder-favorite.png")
     for name, path in (
