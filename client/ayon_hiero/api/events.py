@@ -18,7 +18,7 @@ log = Logger.get_logger(__name__)
 
 
 def startupCompleted(event):
-    log.info("startup competed event...")
+    log.info("startup completed event...")
     # create favorites in nuke's browser
     set_favorites()
     return
