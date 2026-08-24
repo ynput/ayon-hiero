@@ -12,17 +12,20 @@ import json
 import ast
 import secrets
 import hiero
+import nuke
 
 from qtpy import QtWidgets, QtCore
 import ayon_api
 from qtpy import QtXml
 
+from ayon_core import resources
 from ayon_core.settings import get_project_settings
 from ayon_core.pipeline import (
     Anatomy,
     get_current_project_name,
     AYON_INSTANCE_ID,
     AVALON_INSTANCE_ID,
+    registered_host,
 )
 from ayon_core.pipeline.load import filter_containers
 from ayon_core.lib import Logger
@@ -1294,3 +1297,64 @@ def get_main_window():
                            widget.metaObject().className() == name)
         _CTX.parent_gui = main_window
     return _CTX.parent_gui
+
+
+def set_favorites() -> None:
+    """Add context-related favorites to Nuke's file browser.
+
+    Favorites are derived from ``AYON_WORKDIR`` (or the currently opened
+    workfile path) and split into:
+    - project directory
+    - folder directory
+    - work directory
+
+    Important limitations:
+    - Project root detection assumes ``project_name`` is present in the path.
+        If the project name is missing, or appears in an unexpected position,
+        derived project paths may be incorrect.
+    - Folder root detection assumes ``folder_name`` is present and uniquely
+        identifiable in the path. If the folder name is missing or repeated,
+        derived folder paths may be incorrect.
+
+    In short, path derivation is template-dependent and works best when the
+    current context tokens are explicitly represented in the work directory.
+    """
+    work_dir = os.getenv("AYON_WORKDIR")
+
+    # Use workdir from current workfile
+    host = registered_host()
+    current_file = host.get_current_workfile()
+    if current_file:
+        work_dir = os.path.dirname(current_file)
+    # Escape backslashes on windows
+    if platform.system().lower() == "windows":
+        work_dir = work_dir.replace("\\", "/")
+
+    context = host.get_current_context()
+    project_name = context["project_name"]
+    folder_path = context["folder_path"]
+    folder_name = folder_path.split("/")[-1]
+
+    # Split workdir to parts by project name
+    projects_root = work_dir.split(project_name)[0]
+    project_dir = f"{projects_root}{project_name}/"
+
+    folder_root = work_dir.split(folder_name)[0]
+    folder_dir = f"{folder_root}{folder_name}/"
+
+    icon_path = resources.get_resource("icons", "folder-favorite.png")
+    for name, path in (
+        ("Shot dir", folder_dir),
+        ("Work dir", work_dir),
+        ("Project dir", project_dir),
+    ):
+        # This only adds the favorite directory to the "Import File(s)"
+        # and "Import Folder(s)" menus. It does not impact "Import EDL"
+        # nor "Import OTIO" as those are handled natively by Hiero with
+        # no public API.
+        nuke.addFavoriteDir(
+            name=name,
+            directory=path,
+            type=nuke.IMAGE | nuke.SCRIPT,
+            icon=icon_path,
+        )
