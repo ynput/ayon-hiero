@@ -1,14 +1,14 @@
 import pyblish.api
-from ayon_core.pipeline import registered_host
 
 
-class CollectWorkfile(pyblish.api.ContextPlugin):
-    """Collect the current working file into context"""
+class CollectWorkfile(pyblish.api.InstancePlugin):
+    """Collect additional metadata for workfile instance."""
 
     label = "Collect Workfile"
+    order = pyblish.api.CollectorOrder - 0.49
     hosts = ["hiero"]
-    order = pyblish.api.CollectorOrder - 0.5
+    families = ["workfile"]
 
-    def process(self, context):
-        host = registered_host()
-        context.data["currentFile"] = host.get_current_workfile()
+    def process(self, instance):
+        # Mark instance for 'ExtractOTIOFile' in core
+        instance.data["families"].append("otio.timeline.workfile")
