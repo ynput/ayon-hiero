@@ -1,6 +1,6 @@
 name = "hiero"
 title = "Hiero"
-version = "0.6.2+dev"
+version = "0.6.3"
 app_host_name = "hiero"
 client_dir = "ayon_hiero"
 project_can_override_addon_version = True
