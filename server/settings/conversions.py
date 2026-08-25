@@ -2,7 +2,7 @@ from typing import Any
 from semver import VersionInfo
 
 
-def _convert_scripts_menu_0_5_13(
+def _convert_scripts_menu_0_6_3(
     version: VersionInfo,
     overrides: dict[str, Any]
 ) -> None:
@@ -11,7 +11,7 @@ def _convert_scripts_menu_0_5_13(
         return
 
     # Skip conversion of newer versions
-    if (version.major, version.minor, version.patch) > (0, 5, 12):
+    if (version.major, version.minor, version.patch) > (0, 6, 2):
         return
 
     first_action_checked = False
@@ -66,5 +66,5 @@ def convert_settings_overrides(
     overrides: dict[str, Any],
 ) -> dict[str, Any]:
     version = VersionInfo.parse(source_version)
-    _convert_scripts_menu_0_5_13(version, overrides)
+    _convert_scripts_menu_0_6_3(version, overrides)
     return overrides
