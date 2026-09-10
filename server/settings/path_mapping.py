@@ -16,7 +16,8 @@ class PlatformPathMappingModel(BaseSettingsModel):
 class PathMappingSettings(BaseSettingsModel):
     remap_anatomy_root: bool = SettingsField(
         default=False,
-        title="Remap Anatomy Root By Default"
+        title="Remap Anatomy Root By Default",
+        description="Whether to add the Anatomy root paths by default."
     )
     platform_paths: list[PlatformPathMappingModel] = SettingsField(
         default_factory=list,
