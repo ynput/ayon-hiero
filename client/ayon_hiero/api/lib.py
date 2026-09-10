@@ -683,9 +683,9 @@ def add_path_mapping() -> None:
 
     for platform_path in path_mappings.get("platform_paths", {}):
         pform_path = (
-            platform_path.get("windows", ""),
-            platform_path.get("darwin", ""),
-            platform_path.get("linux", ""),
+            platform_path["windows"],
+            platform_path["darwin"],
+            platform_path["linux"],
         )
         paths_to_be_added.add(pform_path)
 
