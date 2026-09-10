@@ -9,7 +9,7 @@ class PlatformPathMappingModel(BaseSettingsModel):
     _layout = "expanded"
     path: MultiplatformPathModel = SettingsField(
         default_factory=MultiplatformPathModel,
-        title="Template path"
+        title="Platform paths"
     )
 
 
