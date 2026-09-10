@@ -1,5 +1,5 @@
 from ayon_server.settings import (
-    BaseSettingsModel, 
+    BaseSettingsModel,
     SettingsField,
     MultiplatformPathModel
 )
