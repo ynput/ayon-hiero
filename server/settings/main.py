@@ -29,7 +29,7 @@ from .filters import PublishGUIFilterItemModel
 
 class HieroSettings(BaseSettingsModel):
     """Nuke addon settings."""
-    path_mappings: PathMappingSettings = SettingsField(
+    path_mapping: PathMappingSettings = SettingsField(
         default_factory=PathMappingSettings,
         title="Path Mappings",
     )
@@ -61,7 +61,7 @@ class HieroSettings(BaseSettingsModel):
 
 
 DEFAULT_VALUES = {
-    "path_mappings": DEFAULT_PATH_MAPPING_SETTINGS,
+    "path_mapping": DEFAULT_PATH_MAPPING_SETTINGS,
     "imageio": DEFAULT_IMAGEIO_SETTINGS,
     "create": DEFAULT_CREATE_SETTINGS,
     "load": DEFAULT_LOADER_PLUGINS_SETTINGS,
