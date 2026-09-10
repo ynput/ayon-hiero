@@ -672,7 +672,6 @@ def add_path_mapping() -> None:
         anatomy = Anatomy(current_project_name)
         root_names = {root for root in anatomy.roots_obj.roots.keys()}
         for root_name in root_names:
-            # ensure the root exists before attempting to get all root paths
             root = anatomy.roots_obj.roots[root_name]
             root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
             paths_to_be_added.add((
