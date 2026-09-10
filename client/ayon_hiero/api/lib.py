@@ -744,6 +744,8 @@ def setup(console=False, port=None, menu=True):
 
     _CTX.has_been_setup = True
     log.debug("pyblish: Loaded successfully.")
+    # Add path mappings for the current session
+    add_path_mapping()
 
 
 def teardown():
