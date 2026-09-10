@@ -663,25 +663,26 @@ def add_path_mapping() -> None:
     current_project_name = get_current_project_name()
     project_settings = get_project_settings(current_project_name)
     hiero_settings = project_settings.get("hiero", {})
-    path_mappings = hiero_settings.get("path_mappings", {})
-    if not path_mappings:
+    path_mapping = hiero_settings.get("path_mapping", {})
+    if not path_mapping:
         return
 
     paths_to_be_added: set[tuple] = set()
-    if path_mappings.get("remap_anatomy_root", False):
+    if path_mapping.get("remap_anatomy_root", False):
         anatomy = Anatomy(current_project_name)
-        work_template_root = anatomy.roots_obj.roots["work"]
-        root_paths_pform = anatomy.roots_obj.all_root_paths(roots=work_template_root)
-        paths_to_be_added.add((
-            # windows
-            root_paths_pform[2],
-            # darwin
-            root_paths_pform[0],
-            # linux
-            root_paths_pform[1],
-        ))
+        roots = anatomy.roots_obj.roots
+        for root in roots:
+            root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
+            paths_to_be_added.add((
+                # windows
+                root_paths_pform[2],
+                # darwin
+                root_paths_pform[0],
+                # linux
+                root_paths_pform[1],
+            ))
 
-    for platform_path in path_mappings.get("platform_paths", {}):
+    for platform_path in path_mapping.get("platform_paths", {}):
         pform_path = (
             platform_path["windows"],
             platform_path["darwin"],
@@ -689,11 +690,14 @@ def add_path_mapping() -> None:
         )
         paths_to_be_added.add(pform_path)
 
+    # no paths from setting to be added
+    if not paths_to_be_added:
+        return
     # existing remaps grouped by OS index: 0=windows, 1=darwin, 2=linux
     existing_by_os = [set(), set(), set()]
 
     for remap in hiero.core.pathRemappings():
-        for index, value in enumerate(remap[:3]):
+        for index, value in enumerate(remap):
             if value:
                 existing_by_os[index].add(value)
 
