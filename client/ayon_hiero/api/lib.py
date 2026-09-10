@@ -670,8 +670,10 @@ def add_path_mapping() -> None:
     paths_to_be_added: set[tuple] = set()
     if path_mapping.get("remap_anatomy_root", False):
         anatomy = Anatomy(current_project_name)
-        roots = anatomy.roots_obj.roots
-        for root in roots:
+        root_names = {root for root in anatomy.roots_obj.roots.keys()}
+        for root_name in root_names:
+            # ensure the root exists before attempting to get all root paths
+            root = anatomy.roots_obj.roots[root_name]
             root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
             paths_to_be_added.add((
                 # windows
@@ -692,35 +694,9 @@ def add_path_mapping() -> None:
     # no paths from setting to be added
     if not paths_to_be_added:
         return
-    # existing remaps grouped by OS index: 0=windows, 1=darwin, 2=linux
-    existing_by_os = [set(), set(), set()]
-
-    for remap in hiero.core.pathRemappings():
-        for index, value in enumerate(remap):
-            if value:
-                existing_by_os[index].add(value)
-
-    # also prevent duplicates within this same run
-    seen_in_this_run = [set(), set(), set()]
 
     for path_tuple in paths_to_be_added:
-        cleaned = list(path_tuple)
-        for index, value in enumerate(path_tuple):
-            if not value:
-                continue
-
-            if (
-                value in existing_by_os[index]
-                or value in seen_in_this_run[index]
-            ):
-                # already mapped for this OS -> blank it out
-                cleaned[index] = ""
-                continue
-
-            seen_in_this_run[index].add(value)
-
-        if any(cleaned):
-            hiero.core.addPathMapping(*cleaned)
+        hiero.core.addPathRemap(*path_tuple)
 
 
 def setup(console=False, port=None, menu=True):
@@ -740,6 +716,8 @@ def setup(console=False, port=None, menu=True):
         teardown()
 
     add_submission()
+    # Add path mappings for the current session
+    add_path_mapping()
 
     if menu:
         add_to_filemenu()
@@ -747,8 +725,6 @@ def setup(console=False, port=None, menu=True):
 
     _CTX.has_been_setup = True
     log.debug("pyblish: Loaded successfully.")
-    # Add path mappings for the current session
-    add_path_mapping()
 
 
 def teardown():
