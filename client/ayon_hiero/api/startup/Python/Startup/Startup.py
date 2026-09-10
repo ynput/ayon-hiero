@@ -19,3 +19,4 @@ else:
     # Setup integration
     import ayon_hiero.api as phiero
     phiero.lib.setup()
+    phiero.lib.add_path_mapping()

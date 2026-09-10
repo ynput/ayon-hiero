@@ -656,6 +656,70 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+def add_path_mapping() -> None:
+    """This function reads the path mappings from the project
+    settings and adds them to Hiero's path mapping table.
+    """
+    current_project_name = get_current_project_name()
+    project_settings = get_project_settings(current_project_name)
+    hiero_settings = project_settings.get("hiero", {})
+    path_mappings = hiero_settings.get("path_mappings", {})
+    if not path_mappings:
+        return
+
+    paths_to_be_added: set[tuple] = set()
+    if path_mappings.get("remap_anatomy_root", False):
+        anatomy = Anatomy(current_project_name)
+        work_template_root = anatomy.roots_obj.roots["work"]
+        root_paths_pform = anatomy.roots_obj.all_root_paths(roots=work_template_root)
+        paths_to_be_added.add((
+            # windows
+            root_paths_pform[2],
+            # darwin
+            root_paths_pform[0],
+            # linux
+            root_paths_pform[1],
+        ))
+
+    for platform_path in path_mappings.get("platform_paths", {}):
+        pform_path = (
+            platform_path.get("windows", ""),
+            platform_path.get("darwin", ""),
+            platform_path.get("linux", ""),
+        )
+        paths_to_be_added.add(pform_path)
+
+    # existing remaps grouped by OS index: 0=windows, 1=darwin, 2=linux
+    existing_by_os = [set(), set(), set()]
+
+    for remap in hiero.core.pathRemappings():
+        for index, value in enumerate(remap[:3]):
+            if value:
+                existing_by_os[index].add(value)
+
+    # also prevent duplicates within this same run
+    seen_in_this_run = [set(), set(), set()]
+
+    for path_tuple in paths_to_be_added:
+        cleaned = list(path_tuple)
+        for index, value in enumerate(path_tuple):
+            if not value:
+                continue
+
+            if (
+                value in existing_by_os[index]
+                or value in seen_in_this_run[index]
+            ):
+                # already mapped for this OS -> blank it out
+                cleaned[index] = ""
+                continue
+
+            seen_in_this_run[index].add(value)
+
+        if any(cleaned):
+            hiero.core.addPathMapping(*cleaned)
+
+
 def setup(console=False, port=None, menu=True):
     """Setup integration
 
