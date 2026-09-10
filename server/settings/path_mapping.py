@@ -14,7 +14,6 @@ class PlatformPathMappingModel(BaseSettingsModel):
 
 
 class PathMappingSettings(BaseSettingsModel):
-    _layout = "expanded"
     remap_anatomy_root: bool = SettingsField(
         default=False,
         title="Remap Anatomy Root By Default"
