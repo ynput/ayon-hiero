@@ -656,6 +656,48 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+def add_path_mapping() -> None:
+    """This function reads the path mappings from the project
+    settings and adds them to Hiero's path mapping table.
+    """
+    current_project_name = get_current_project_name()
+    project_settings = get_project_settings(current_project_name)
+    hiero_settings = project_settings.get("hiero", {})
+    path_mapping = hiero_settings.get("path_mapping", {})
+    if not path_mapping:
+        return
+
+    paths_to_be_added: set[tuple] = set()
+    if path_mapping.get("remap_anatomy_root", False):
+        anatomy = Anatomy(current_project_name)
+        root_names = {root for root in anatomy.roots_obj.roots.keys()}
+        for root_name in root_names:
+            root = anatomy.roots_obj.roots[root_name]
+            root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
+            paths_to_be_added.add((
+                # windows
+                root_paths_pform[2],
+                # darwin
+                root_paths_pform[0],
+                # linux
+                root_paths_pform[1],
+            ))
+
+    for platform_path in path_mapping.get("platform_paths", {}):
+        pform_path = (
+            platform_path["path"]["windows"],
+            platform_path["path"]["darwin"],
+            platform_path["path"]["linux"],
+        )
+        paths_to_be_added.add(pform_path)
+    # no paths from setting to be added
+    if not paths_to_be_added:
+        return
+
+    for path_tuple in paths_to_be_added:
+        hiero.core.addPathRemap(*path_tuple)
+
+
 def setup(console=False, port=None, menu=True):
     """Setup integration
 
@@ -673,6 +715,8 @@ def setup(console=False, port=None, menu=True):
         teardown()
 
     add_submission()
+    # Add path mappings for the current session
+    add_path_mapping()
 
     if menu:
         add_to_filemenu()
