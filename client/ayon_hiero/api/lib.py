@@ -694,8 +694,17 @@ def add_path_mapping() -> None:
     if not paths_to_be_added:
         return
 
+    preferences = nuke.toNode("preferences")
+    remap_knob = preferences["platformPathRemaps"]
+    remap_path_str = remap_knob.toScript()
+
     for path_tuple in paths_to_be_added:
-        hiero.core.addPathRemap(*path_tuple)
+        new_mapping =";".join(path_tuple) + ";"
+        if new_mapping not in remap_path_str:
+            remap_path_str += new_mapping
+            hiero.core.addPathRemap(*path_tuple)
+
+    remap_knob.fromScript(remap_path_str)
 
 
 def setup(console=False, port=None, menu=True):
