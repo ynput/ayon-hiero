@@ -23,7 +23,7 @@ class ValidateCollectedTrackItem(
         if instance.data["trackItem"] is None:
             raise PublishValidationError(
                 "Could not find track item associated to this instance. "
-                "This might be because the timline clip was copied/pasted from another sequence. \n"
+                "This might be because the timeline clip was copied/pasted from another sequence. \n"
                 "Use 'Repair' to relink the source clip to this instance."
             )
 
