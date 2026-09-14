@@ -36,8 +36,10 @@ class ValidateCollectedTrackItem(
         """
         """
         item_tag = lib.get_trackitem_ayon_tag(track_item)
-        tag_data = tags.get_tag_data(item_tag)
+        if not item_tag:
+            return False
 
+        tag_data = tags.get_tag_data(item_tag) or {}
         if "hiero_sub_products" not in tag_data:
             return False
 
