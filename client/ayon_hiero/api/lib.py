@@ -692,7 +692,7 @@ def add_path_mapping() -> None:
         if (
             not any(pform_path) or
             pform_path in paths_to_be_added or
-            pform_path in hiero.core.pathRemap()
+            pform_path in hiero.core.pathRemappings()
         ):
             continue
         paths_to_be_added.add(pform_path)
