@@ -689,6 +689,12 @@ def add_path_mapping() -> None:
             platform_path["path"]["darwin"],
             platform_path["path"]["linux"],
         )
+        if (
+            not any(pform_path) or
+            pform_path in paths_to_be_added or
+            pform_path in hiero.core.pathRemap()
+        ):
+            continue
         paths_to_be_added.add(pform_path)
     # no paths from setting to be added
     if not paths_to_be_added:
