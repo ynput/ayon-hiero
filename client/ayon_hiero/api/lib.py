@@ -661,20 +661,58 @@ def add_path_mapping() -> None:
     settings and adds them to Hiero's path mapping table.
     """
     current_project_name = get_current_project_name()
-    project_settings = get_project_settings(current_project_name)
+    configured_path_mappings = _configured_path_mappings(current_project_name)
+    has_open_project = bool(hiero.core.projects())
+    previous_remappings = (
+        _get_ayon_path_mappings() if has_open_project else set()
+    )
+    if previous_remappings:
+        return
+
+    if not configured_path_mappings:
+        return
+
+    preferences = nuke.toNode("preferences")
+    remap_knob = preferences["platformPathRemaps"]
+    remap_path_str = remap_knob.toScript()
+
+    for path_tuple in configured_path_mappings:
+        new_mapping =";".join(path_tuple) + ";"
+        if new_mapping not in remap_path_str:
+            remap_path_str += new_mapping
+            hiero.core.addPathRemap(*path_tuple)
+
+    remap_knob.fromScript(remap_path_str)
+
+    if has_open_project:
+        _set_ayon_path_mappings(configured_path_mappings)
+
+
+def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
+    """Retrieve configured path mappings from the addon settings.
+
+    Args:
+        project_name (str): Name of the current project.
+
+    Returns:
+        set[tuple[str, str, str]]: A set of tuples containing the
+            configured path mappings for Windows, Darwin, and Linux
+            platforms.
+    """
+    project_settings = get_project_settings(project_name)
     hiero_settings = project_settings.get("hiero", {})
     path_mapping = hiero_settings.get("path_mapping", {})
     if not path_mapping:
-        return
+        return set()
 
-    paths_to_be_added: set[tuple] = set()
+    configured_paths: set[tuple[str, str, str]] = set()
     if path_mapping.get("remap_anatomy_root", False):
-        anatomy = Anatomy(current_project_name)
+        anatomy = Anatomy(project_name)
         root_names = {root for root in anatomy.roots_obj.roots.keys()}
         for root_name in root_names:
             root = anatomy.roots_obj.roots[root_name]
             root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
-            paths_to_be_added.add((
+            configured_paths.add((
                 # windows
                 root_paths_pform[2],
                 # darwin
@@ -691,26 +729,40 @@ def add_path_mapping() -> None:
         )
         if (
             not any(pform_path) or
-            pform_path in paths_to_be_added or
-            pform_path in hiero.core.pathRemappings()
+            pform_path in configured_paths
         ):
             continue
-        paths_to_be_added.add(pform_path)
-    # no paths from setting to be added
-    if not paths_to_be_added:
+        configured_paths.add(pform_path)
+    return configured_paths
+
+
+def _get_ayon_path_mappings() -> set[tuple[str, str, str]]:
+    """Get ayon path mappings from tag "remaps" in the workfile.
+
+    Returns:
+        set[tuple[str, str, str]]: A set of tuples containing the
+            configured path mappings for Windows, Darwin, and Linux
+            platforms.
+    """
+    remapped_tags = tags.get_or_create_workfile_tag("remaps")
+    if not remapped_tags:
+        return set()
+    remapping_dict = tags.get_tag_data(remapped_tags)
+    return set(remapping_dict.get("paths", []))
+
+
+def _set_ayon_path_mappings(path_mappings) -> None:
+    """Set ayon path mappings in the workfile under the tag "remaps".
+
+    Args:
+        path_mappings (set[tuple[str, str, str]]): A set of tuples
+            containing the path mappings for Windows, Darwin, and
+            Linux platforms.
+    """
+    remapped_tags = tags.get_or_create_workfile_tag("remaps")
+    if not remapped_tags:
         return
-
-    preferences = nuke.toNode("preferences")
-    remap_knob = preferences["platformPathRemaps"]
-    remap_path_str = remap_knob.toScript()
-
-    for path_tuple in paths_to_be_added:
-        new_mapping =";".join(path_tuple) + ";"
-        if new_mapping not in remap_path_str:
-            remap_path_str += new_mapping
-            hiero.core.addPathRemap(*path_tuple)
-
-    remap_knob.fromScript(remap_path_str)
+    tags.update_tag(remapped_tags, {"paths": list(path_mappings)})
 
 
 def setup(console=False, port=None, menu=True):

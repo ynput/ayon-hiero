@@ -9,6 +9,7 @@ from .lib import (
     launch_workfiles_app,
     before_project_save,
     apply_colorspace_project,
+    add_path_mapping,
     set_favorites,
 )
 from .tags import add_tags_to_workfile
@@ -41,6 +42,9 @@ def afterNewProjectCreated(event):
 
     # add tags from preset
     add_tags_to_workfile()
+
+    # add remapping
+    add_path_mapping()
 
     # Workfiles.
     if int(os.environ.get("WORKFILES_STARTUP", "0")):
