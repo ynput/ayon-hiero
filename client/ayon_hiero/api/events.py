@@ -68,6 +68,9 @@ def afterProjectLoad(event):
     # add tags from preset
     add_tags_to_workfile()
 
+    # add remapping
+    add_path_mapping()
+
 
 def beforeProjectClosed(event):
     log.info("before project closed event...")

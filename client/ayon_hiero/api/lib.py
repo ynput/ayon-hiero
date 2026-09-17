@@ -662,19 +662,15 @@ def add_path_mapping() -> None:
     """
     current_project_name = get_current_project_name()
     configured_path_mappings = _configured_path_mappings(current_project_name)
-    has_open_project = bool(hiero.core.projects())
-    previous_remappings = (
-        _get_ayon_path_mappings() if has_open_project else set()
-    )
-    if previous_remappings:
-        return
-
     if not configured_path_mappings:
         return
 
     preferences = nuke.toNode("preferences")
     remap_knob = preferences["platformPathRemaps"]
     remap_path_str = remap_knob.toScript()
+    ayon_mappings = os.getenv("AVON_PATH_MAPPINGS", "")
+    if ayon_mappings and ayon_mappings in remap_path_str:
+        return
 
     for path_tuple in configured_path_mappings:
         new_mapping =";".join(path_tuple) + ";"
@@ -683,9 +679,7 @@ def add_path_mapping() -> None:
             hiero.core.addPathRemap(*path_tuple)
 
     remap_knob.fromScript(remap_path_str)
-
-    if has_open_project:
-        _set_ayon_path_mappings(configured_path_mappings)
+    os.environ["AVON_PATH_MAPPINGS"] = remap_path_str
 
 
 def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
@@ -708,10 +702,12 @@ def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
     configured_paths: set[tuple[str, str, str]] = set()
     if path_mapping.get("remap_anatomy_root", False):
         anatomy = Anatomy(project_name)
-        root_names = {root for root in anatomy.roots_obj.roots.keys()}
-        for root_name in root_names:
-            root = anatomy.roots_obj.roots[root_name]
-            root_paths_pform = anatomy.roots_obj.all_root_paths(roots=root)
+
+        def groupby(seq, n) -> list[list[str]]:
+                return [seq[i:i+n] for i in range(0, len(seq), n)]
+
+        root_paths_pform = anatomy.roots_obj.all_root_paths()
+        for root_paths_pform in groupby(root_paths_pform, 3):
             configured_paths.add((
                 # windows
                 root_paths_pform[2],
@@ -734,35 +730,6 @@ def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
             continue
         configured_paths.add(pform_path)
     return configured_paths
-
-
-def _get_ayon_path_mappings() -> set[tuple[str, str, str]]:
-    """Get ayon path mappings from tag "remaps" in the workfile.
-
-    Returns:
-        set[tuple[str, str, str]]: A set of tuples containing the
-            configured path mappings for Windows, Darwin, and Linux
-            platforms.
-    """
-    remapped_tags = tags.get_or_create_workfile_tag("remaps")
-    if not remapped_tags:
-        return set()
-    remapping_dict = tags.get_tag_data(remapped_tags)
-    return set(remapping_dict.get("paths", []))
-
-
-def _set_ayon_path_mappings(path_mappings) -> None:
-    """Set ayon path mappings in the workfile under the tag "remaps".
-
-    Args:
-        path_mappings (set[tuple[str, str, str]]): A set of tuples
-            containing the path mappings for Windows, Darwin, and
-            Linux platforms.
-    """
-    remapped_tags = tags.get_or_create_workfile_tag("remaps")
-    if not remapped_tags:
-        return
-    tags.update_tag(remapped_tags, {"metadata": list(path_mappings)})
 
 
 def setup(console=False, port=None, menu=True):
