@@ -656,6 +656,84 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+def add_path_mapping() -> None:
+    """This function reads the path mappings from the project
+    settings and adds them to Hiero's path mapping table.
+    """
+    current_project_name = get_current_project_name()
+    configured_path_mappings = _configured_path_mappings(current_project_name)
+    if not configured_path_mappings:
+        return
+
+    preferences = nuke.toNode("preferences")
+    remap_knob = preferences["platformPathRemaps"]
+    remap_path_str = remap_knob.toScript()
+    ayon_mappings = os.getenv("AVON_PATH_MAPPINGS", "")
+    if ayon_mappings and ayon_mappings in remap_path_str:
+        return
+
+    for path_tuple in configured_path_mappings:
+        if list(path_tuple) in hiero.core.pathRemappings():
+            continue
+        new_mapping =";".join(path_tuple) + ";"
+        if new_mapping not in remap_path_str:
+            remap_path_str += new_mapping
+            hiero.core.addPathRemap(*path_tuple)
+
+    remap_knob.fromScript(remap_path_str)
+    os.environ["AVON_PATH_MAPPINGS"] = remap_path_str
+
+
+def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
+    """Retrieve configured path mappings from the addon settings.
+
+    Args:
+        project_name (str): Name of the current project.
+
+    Returns:
+        set[tuple[str, str, str]]: A set of tuples containing the
+            configured path mappings for Windows, Darwin, and Linux
+            platforms.
+    """
+    project_settings = get_project_settings(project_name)
+    hiero_settings = project_settings.get("hiero", {})
+    path_mapping = hiero_settings.get("path_mapping", {})
+    if not path_mapping:
+        return set()
+
+    configured_paths: set[tuple[str, str, str]] = set()
+    if path_mapping.get("remap_anatomy_root", False):
+        anatomy = Anatomy(project_name)
+
+        def groupby(seq, n) -> list[list[str]]:
+                return [seq[i:i+n] for i in range(0, len(seq), n)]
+
+        root_paths_pform = anatomy.roots_obj.all_root_paths()
+        for root_paths_pform in groupby(root_paths_pform, 3):
+            configured_paths.add((
+                # windows
+                root_paths_pform[2],
+                # darwin
+                root_paths_pform[0],
+                # linux
+                root_paths_pform[1],
+            ))
+
+    for platform_path in path_mapping.get("platform_paths", {}):
+        pform_path = (
+            platform_path["path"]["windows"],
+            platform_path["path"]["darwin"],
+            platform_path["path"]["linux"],
+        )
+        if (
+            not any(pform_path) or
+            pform_path in configured_paths
+        ):
+            continue
+        configured_paths.add(pform_path)
+    return configured_paths
+
+
 def setup(console=False, port=None, menu=True):
     """Setup integration
 
@@ -673,6 +751,8 @@ def setup(console=False, port=None, menu=True):
         teardown()
 
     add_submission()
+    # Add path mappings for the current session
+    add_path_mapping()
 
     if menu:
         add_to_filemenu()
