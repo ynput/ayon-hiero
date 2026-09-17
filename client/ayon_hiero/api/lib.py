@@ -762,7 +762,7 @@ def _set_ayon_path_mappings(path_mappings) -> None:
     remapped_tags = tags.get_or_create_workfile_tag("remaps")
     if not remapped_tags:
         return
-    tags.update_tag(remapped_tags, {"paths": list(path_mappings)})
+    tags.update_tag(remapped_tags, {"metadata": list(path_mappings)})
 
 
 def setup(console=False, port=None, menu=True):
