@@ -673,7 +673,7 @@ def add_path_mapping() -> None:
         return
 
     for path_tuple in configured_path_mappings:
-        if path_tuple in hiero.core.pathRemappings():
+        if list(path_tuple) in hiero.core.pathRemappings():
             continue
         new_mapping =";".join(path_tuple) + ";"
         if new_mapping not in remap_path_str:
