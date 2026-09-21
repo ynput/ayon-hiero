@@ -212,7 +212,8 @@ def parse_container(item, validate=True):
 
         # If not all required data return the empty container
         required = ['schema', 'id', 'name',
-                    'namespace', 'loader', 'representation']
+                    'namespace', 'loader', 'representation',
+                    'project_name']
 
         if any(key not in data for key in required):
             return
