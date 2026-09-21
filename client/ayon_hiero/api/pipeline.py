@@ -245,11 +245,7 @@ def parse_container(item, validate=True):
 
 
 def _update_container_data(container, data):
-    for key in container:
-        try:
-            container[key] = data[key]
-        except KeyError:
-            pass
+    container.update(data)
     return container
 
 
