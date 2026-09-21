@@ -130,6 +130,7 @@ def containerise(track_item,
         "namespace": str(namespace),
         "loader": str(loader),
         "representation": context["representation"]["id"],
+        "project_name": context["project"]["name"]
     })
 
     if data:
