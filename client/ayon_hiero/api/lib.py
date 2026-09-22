@@ -656,10 +656,62 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+def _persist_prefs_knobs(preferences, knob_names: list[str]) -> None:
+    """Force-write given knob values to the on-disk preferences file.
+
+    Args:
+        preferences (nuke.Node): The preferences node containing the knobs.
+        knob_names (list[str]): List of knob names to persist.
+
+    """
+    ver = "{}.{}".format(nuke.NUKE_VERSION_MAJOR, nuke.NUKE_VERSION_MINOR)
+    path = os.path.expandvars("$HOME/.nuke/preferences{}.nk".format(ver))
+    lines = []
+    if os.path.isfile(path):
+        with open(path) as f:
+            lines = f.readlines()
+
+    # Build a set for O(1) lookups
+    knob_names_set = set(knob_names)
+    patched = set()
+
+    # Pattern compiled once for efficiency
+    knob_pattern = re.compile(r"^(\s*)(\S+)\s")
+    patched = set()
+    for i, line in enumerate(lines):
+        match = knob_pattern.match(line)
+        if match and match.group(2) in knob_names_set:
+            name = match.group(2)
+            lines[i] = "{}{} {}\n".format(
+                match.group(1), name, preferences[name].toScript()
+            )
+            patched.add(name)
+
+    idx = next(
+        (i for i in range(len(lines) - 1, -1, -1) if lines[i].strip() == "}"),
+        len(lines),
+    )
+    for name in knob_names_set - patched:
+        lines.insert(idx, "{} {}\n".format(name, preferences[name].toScript()))
+        idx += 1
+
+    with open(path, "w") as f:
+        f.writelines(lines)
+
+
 def add_path_mapping() -> None:
     """This function reads the path mappings from the project
     settings and adds them to Hiero's path mapping table.
     """
+    def _parse_remaps(remap_str: str) -> set[tuple[str, str, str]]:
+        """Parse a remap string into a set of path mapping tuples."""
+        tokens = [t for t in remap_str.split(";") if t]
+        return {tuple(tokens[i:i + 3]) for i in range(0, len(tokens) - 2, 3)}
+
+    def _remaps_to_str(remaps: set[tuple[str, str, str]]) -> str:
+        """Convert a set of path mapping tuples into a remap string."""
+        return "".join(f"{';'.join(r)};" for r in sorted(remaps))
+
     current_project_name = get_current_project_name()
     configured_path_mappings = _configured_path_mappings(current_project_name)
     if not configured_path_mappings:
@@ -667,21 +719,35 @@ def add_path_mapping() -> None:
 
     preferences = nuke.toNode("preferences")
     remap_knob = preferences["platformPathRemaps"]
-    remap_path_str = remap_knob.toScript()
-    ayon_mappings = os.getenv("AVON_PATH_MAPPINGS", "")
-    if ayon_mappings and ayon_mappings in remap_path_str:
-        return
+    remaps = _parse_remaps(remap_knob.toScript())
 
-    for path_tuple in configured_path_mappings:
-        if list(path_tuple) in hiero.core.pathRemappings():
-            continue
-        new_mapping =";".join(path_tuple) + ";"
-        if new_mapping not in remap_path_str:
-            remap_path_str += new_mapping
+    # Clear previously remapping set by AYON.
+    ayon_knob = preferences.knob("ayon_path_remapping")
+    if ayon_knob:
+        # Remove previously set AYON remaps
+        remaps -= _parse_remaps(ayon_knob.value())
+    else:
+        # Create the knob if it doesn't exist
+        ayon_knob = nuke.String_Knob("ayon_path_remapping", "AYON Path Remapping")
+        ayon_knob.setFlag(nuke.INVISIBLE)
+        preferences.addKnob(ayon_knob)
+
+    # Add configured path mappings
+    # Convert to set of tuples once
+    configured_set = {tuple(m) for m in configured_path_mappings}
+    remaps |= configured_set
+
+  # Add to Hiero if not already present
+    hiero_remaps = hiero.core.pathRemappings()
+    for path_tuple in configured_set:
+        if list(path_tuple) not in hiero_remaps:
             hiero.core.addPathRemap(*path_tuple)
 
-    remap_knob.fromScript(remap_path_str)
-    os.environ["AVON_PATH_MAPPINGS"] = remap_path_str
+    # Update knobs
+    remap_knob.fromScript(_remaps_to_str(remaps))
+    ayon_knob.setValue(_remaps_to_str(configured_set))
+
+    _persist_prefs_knobs(preferences, ["platformPathRemaps", "ayon_path_remapping"])
 
 
 def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
