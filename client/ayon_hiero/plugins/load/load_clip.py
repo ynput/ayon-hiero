@@ -181,7 +181,8 @@ class LoadClip(phiero.SequenceLoader):
             "representation": repre_entity["id"],
             "version": version_name,
             "colorspace": colorspace,
-            "objectName": object_name
+            "objectName": object_name,
+            "project_name": context["project"]["name"],
         })
 
         # update color of clip regarding the version order
