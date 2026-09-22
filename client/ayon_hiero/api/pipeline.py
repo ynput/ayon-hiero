@@ -22,7 +22,6 @@ from ayon_core.pipeline import (
     register_loader_plugin_path,
     AVALON_CONTAINER_ID,
     AYON_CONTAINER_ID,
-    get_current_project_name,
 )
 
 from ayon_core.tools.utils import host_tools
