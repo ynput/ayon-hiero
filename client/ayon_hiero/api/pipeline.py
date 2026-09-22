@@ -212,13 +212,14 @@ def parse_container(item, validate=True):
 
         # If not all required data return the empty container
         required = ['schema', 'id', 'name',
-                    'namespace', 'loader', 'representation',
-                    'project_name']
+                'namespace', 'loader', 'representation']
 
         if any(key not in data for key in required):
             return
 
         container = {key: data[key] for key in required}
+        if "project_name" in data:
+            container["project_name"] = data["project_name"]
 
         container["objectName"] = item.name()
 
