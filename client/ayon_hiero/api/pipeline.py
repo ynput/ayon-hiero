@@ -130,6 +130,7 @@ def containerise(track_item,
         "namespace": str(namespace),
         "loader": str(loader),
         "representation": context["representation"]["id"],
+        "project_name": context["project"]["name"]
     })
 
     if data:
@@ -217,6 +218,8 @@ def parse_container(item, validate=True):
             return
 
         container = {key: data[key] for key in required}
+        if "project_name" in data:
+            container["project_name"] = data["project_name"]
 
         container["objectName"] = item.name()
 
@@ -243,12 +246,14 @@ def parse_container(item, validate=True):
 
 
 def _update_container_data(container, data):
-    for key in container:
-        try:
-            container[key] = data[key]
-        except KeyError:
-            pass
-    return container
+    if container is None:
+        container = {}
+
+    updated = dict(container)
+    for key, value in data.items():
+        updated[key] = value
+
+    return updated
 
 
 def update_container(item, data=None):
