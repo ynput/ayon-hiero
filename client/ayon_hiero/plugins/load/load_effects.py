@@ -295,6 +295,7 @@ class LoadEffects(load.LoaderPlugin):
                 "namespace": str(namespace),
                 "loader": str(loader),
                 "representation": context["representation"]["id"],
+                "project_name": context["project"]["name"],
             }
         }
 
