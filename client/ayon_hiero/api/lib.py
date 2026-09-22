@@ -714,15 +714,27 @@ def add_path_mapping() -> None:
 
     current_project_name = get_current_project_name()
     configured_path_mappings = _configured_path_mappings(current_project_name)
-    if not configured_path_mappings:
-        return
-
     preferences = nuke.toNode("preferences")
     remap_knob = preferences["platformPathRemaps"]
-    remaps = _parse_remaps(remap_knob.toScript())
-
     # Clear previously remapping set by AYON.
     ayon_knob = preferences.knob("ayon_path_remapping")
+    if not configured_path_mappings:
+        if not ayon_knob:
+            return
+
+        ayon_remaps = _parse_remaps(ayon_knob.value())
+        remaps = _parse_remaps(remap_knob.toScript())
+        remaps -= ayon_remaps
+
+        remap_knob.fromScript(_remaps_to_str(remaps))
+        ayon_knob.setValue("")
+        _persist_prefs_knobs(
+            preferences,
+            ["platformPathRemaps", "ayon_path_remapping"],
+        )
+        return
+
+    remaps = _parse_remaps(remap_knob.toScript())
     if ayon_knob:
         # Remove previously set AYON remaps
         remaps -= _parse_remaps(ayon_knob.value())
