@@ -22,6 +22,7 @@ from ayon_core.pipeline import (
     register_loader_plugin_path,
     AVALON_CONTAINER_ID,
     AYON_CONTAINER_ID,
+    get_current_project_name,
 )
 
 from ayon_core.tools.utils import host_tools
@@ -212,7 +213,7 @@ def parse_container(item, validate=True):
 
         # If not all required data return the empty container
         required = ['schema', 'id', 'name',
-                'namespace', 'loader', 'representation']
+                    'namespace', 'loader', 'representation']
 
         if any(key not in data for key in required):
             return
@@ -246,6 +247,8 @@ def parse_container(item, validate=True):
 
 
 def _update_container_data(container, data):
+    if "project_name" not in data:
+        data["project_name"] = get_current_project_name()
     container.update(data)
     return container
 
