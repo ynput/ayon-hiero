@@ -674,6 +674,12 @@ def _persist_prefs_knobs(preferences, knob_names: list[str]) -> None:
     # Build a set for O(1) lookups
     knob_names_set = set(knob_names)
     patched = set()
+    custom_knob_definitions = {
+        "ayon_path_remapping": (
+            'addUserKnob {1 ayon_path_remapping '
+            'l "AYON Path Remapping" +INVISIBLE}\n'
+        )
+    }
 
     # Pattern compiled once for efficiency
     knob_pattern = re.compile(r"^(\s*)(\S+)\s")
@@ -682,17 +688,40 @@ def _persist_prefs_knobs(preferences, knob_names: list[str]) -> None:
         match = knob_pattern.match(line)
         if match and match.group(2) in knob_names_set:
             name = match.group(2)
+            knob = preferences.knob(name)
             lines[i] = "{}{} {}\n".format(
-                match.group(1), name, preferences[name].toScript()
+                match.group(1), name, knob.toScript()
             )
             patched.add(name)
+
+    # Nuke needs a custom knob declaration before it can read its value.
+    for name, definition in custom_knob_definitions.items():
+        if name not in knob_names_set:
+            continue
+        value_index = next(
+            (
+                index for index, line in enumerate(lines)
+                if re.match(r"^\s*{}\s".format(re.escape(name)), line)
+            ),
+            None,
+        )
+        has_definition = any(
+            "addUserKnob" in line and name in line for line in lines
+        )
+        if value_index is not None and not has_definition:
+            lines.insert(value_index, definition)
 
     idx = next(
         (i for i in range(len(lines) - 1, -1, -1) if lines[i].strip() == "}"),
         len(lines),
     )
+
     for name in knob_names_set - patched:
-        lines.insert(idx, "{} {}\n".format(name, preferences[name].toScript()))
+        knob = preferences.knob(name)
+        if name in custom_knob_definitions:
+            lines.insert(idx, custom_knob_definitions[name])
+            idx += 1
+        lines.insert(idx, "{} {}\n".format(name, knob.toScript()))
         idx += 1
 
     with open(path, "w") as f:
@@ -705,37 +734,23 @@ def add_path_mapping() -> None:
     """
     def _parse_remaps(remap_str: str) -> set[tuple[str, str, str]]:
         """Parse a remap string into a set of path mapping tuples."""
-        tokens = [t for t in remap_str.split(";") if t]
+        tokens = remap_str.rstrip(";").split(";")
         return {tuple(tokens[i:i + 3]) for i in range(0, len(tokens) - 2, 3)}
 
     def _remaps_to_str(remaps: set[tuple[str, str, str]]) -> str:
-        """Convert a set of path mapping tuples into a remap string."""
-        return "".join(f"{';'.join(r)};" for r in sorted(remaps))
+        return "".join(";".join(r) + ";" for r in sorted(remaps))
 
     current_project_name = get_current_project_name()
     configured_path_mappings = _configured_path_mappings(current_project_name)
     preferences = nuke.toNode("preferences")
     remap_knob = preferences["platformPathRemaps"]
-    # Clear previously remapping set by AYON.
-    ayon_knob = preferences.knob("ayon_path_remapping")
     if not configured_path_mappings:
-        if not ayon_knob:
-            return
-
-        ayon_remaps = _parse_remaps(ayon_knob.value())
-        remaps = _parse_remaps(remap_knob.toScript())
-        remaps -= ayon_remaps
-
-        remap_knob.fromScript(_remaps_to_str(remaps))
-        ayon_knob.setValue("")
-        _persist_prefs_knobs(
-            preferences,
-            ["platformPathRemaps", "ayon_path_remapping"],
-        )
         return
 
+    # Clear previously remapping set by AYON.
+    ayon_knob = preferences.knob("ayon_path_remapping")
     remaps = _parse_remaps(remap_knob.toScript())
-    if ayon_knob:
+    if ayon_knob is not None:
         # Remove previously set AYON remaps
         remaps -= _parse_remaps(ayon_knob.value())
     else:
