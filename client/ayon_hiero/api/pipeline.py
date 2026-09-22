@@ -247,10 +247,14 @@ def parse_container(item, validate=True):
 
 
 def _update_container_data(container, data):
-    if "project_name" not in data:
-        data["project_name"] = get_current_project_name()
-    container.update(data)
-    return container
+    if container is None:
+        container = {}
+
+    updated = dict(container)
+    for key, value in data.items():
+        updated[key] = value
+
+    return updated
 
 
 def update_container(item, data=None):
