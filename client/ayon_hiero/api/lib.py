@@ -670,7 +670,8 @@ def _persist_prefs_knobs(preferences, knob_names: list[str]) -> None:
     if os.path.isfile(path):
         with open(path) as f:
             lines = f.readlines()
-
+    else:
+        log.warning(f"Preferences file does not exist at path: {path}")
     # Build a set for O(1) lookups
     knob_names_set = set(knob_names)
     patched = set()
