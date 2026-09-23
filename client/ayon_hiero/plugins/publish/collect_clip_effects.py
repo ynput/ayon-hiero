@@ -24,6 +24,10 @@ class CollectClipEffects(pyblish.api.InstancePlugin):
             self.log.info("Audio clip, effects publish is only supported for plates.")
             return
 
+        if instance.data["trackItem"] is None:
+            self.log.info("No track item found, skipping effects collection.")
+            return
+
         product_base_type = "effect"
 
         effects = {}
