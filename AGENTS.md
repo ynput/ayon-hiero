@@ -55,6 +55,8 @@ agent session; describe the manual steps a reviewer must run instead.
 
 ## Spec Kit
 
+### Spec Kit
+
 Spec-driven development setup: [SPEC_KIT.md](SPEC_KIT.md). This repo is
 harness-agnostic — no agent config is committed; each teammate installs their
 own Spec Kit integration and links `.agents-main` via

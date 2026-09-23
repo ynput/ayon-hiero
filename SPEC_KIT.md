@@ -129,7 +129,6 @@ Version control keeps the durable decision record, not the working files —
 this is what future agents (and reviewers) read to understand past choices:
 
 | File | Produced by | Kept |
-| `docs/memory/` | `agentic_setup.py install --resource memory-md` then `/speckit.memory-md.init` | ✅ repository-native memory — decisions, bugs, worklogs, and project context. |
 | `specs/<NNN-feature>/spec.md` | `/speckit.specify` | ✅ what & why (requirements, acceptance criteria) |
 | `specs/<NNN-feature>/plan.md` | `/speckit.plan` | ✅ how & why (approach, decisions) |
 | `specs/<NNN-feature>/tasks.md` | `/speckit.tasks` | ✅ what was done (task breakdown) |

@@ -35,10 +35,6 @@ manual steps documented in ``SPEC_KIT.md``:
   the mandatory ``after_constitution`` verification hook) from the
   shared repository, plus the opt-in ``bug`` extension for the
   bug-fixing workflow (``--specify``)
-- optionally install community Spec Kit extensions (``--resource``) that
-  are not yet in the registry: currently ``memory-md`` from the Spec Kit
-  Memory Hub repository, defined in ``COMMUNITY_RESOURCES`` — extend it to
-  add more without new code
 - ensure the configurable harness / Spec Kit ignore policy in
   ``GITIGNORE_SNIPPET`` is present in the addon repository's ``.gitignore``
   (and ``.agents-main`` is also ignored by git)
@@ -140,12 +136,6 @@ GITIGNORE_COPIED: List[str] = [
     ".specify/memory/ayon-constitution.md",
     ".specify/memory/ayon-constitution-evidence.md",
 ]
-# The addon-constitution copy is version-controlled: this negation is
-# appended AFTER the '.specify/memory/*' ignore rule so the copy stays
-# tracked while the symlinked shared files remain ignored.
-GITIGNORE_ADDON_CONSTITUTION: str = (
-    "!.specify/memory/ayon-addon-constitution.md"
-)
 # Managed as one configurable block so new harnesses, Spec Kit artifacts, or
 # durable-record exceptions can be added here without changing setup logic.
 GITIGNORE_SNIPPET: str = """# Agent harness / Spec Kit state (this repo is harness-agnostic)
@@ -196,24 +186,6 @@ CLAUDE.md
 
 !.specify/memory/ayon-addon-constitution.md"""
 DEFAULT_INTEGRATION: str = "copilot"
-
-# Community resources bootstrapped from remote repositories. A resource can
-# either be a Spec Kit extension (installed from an archive) or a collection
-# of files. Add new resources here; the installation loop stays generic.
-COMMUNITY_RESOURCES: dict = {
-    "memory-md": {
-        "kind": "specify-extension",
-        "description": "Spec Kit Memory Hub — repository-native project memory",
-        "source_url": "https://github.com/DyanGalih/spec-kit-memory-hub",
-        "extension_id": "memory-md",
-        # Use the repository's current main branch so this remains usable
-        # before a release is added to the Spec Kit registry.
-        "archive_url": (
-            "https://github.com/DyanGalih/spec-kit-memory-hub/"
-            "archive/refs/heads/main.zip"
-        ),
-    },
-}
 
 LOG = logging.getLogger("agentic_setup")
 
@@ -642,7 +614,6 @@ def _copy_addon_constitution(force: bool = False) -> bool:
         os.remove(dest)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     shutil.copy2(source, dest)
-    _ensure_gitignore_entries([GITIGNORE_ADDON_CONSTITUTION])
     LOG.info(
         "Copied %s (tracked, owned by this repository).", dest
     )
@@ -779,93 +750,6 @@ def install_bug_extension(force: bool = False) -> bool:
         return False
     LOG.info("Bug extension installed.")
     return True
-
-
-def install_community_resources(
-    resource_ids: List[str], force: bool = False
-) -> bool:
-    """Install configured community resources.
-
-    Spec Kit extensions are installed through ``specify extension add``
-    using the configured archive URL. This is important for community
-    extensions that are not yet present in the registry. File resources
-    remain supported through the same generic registry.
-    """
-    if not resource_ids:
-        return True
-
-    ok = True
-    for rid in resource_ids:
-        spec = COMMUNITY_RESOURCES.get(rid)
-        if spec is None:
-            LOG.error(
-                "Unknown community resource %r. Available: %s",
-                rid,
-                ", ".join(sorted(COMMUNITY_RESOURCES)),
-            )
-            ok = False
-            continue
-
-        kind = spec.get("kind", "files")
-        if kind == "specify-extension":
-            if shutil.which("specify") is None:
-                LOG.error(
-                    "'specify' CLI not found; install it with --specify "
-                    "before installing resource %r.", rid,
-                )
-                ok = False
-                continue
-            extension_id = spec.get("extension_id", rid)
-            if extension_id in _installed_extensions() and not force:
-                LOG.info("Community extension %r already installed, skipping.", rid)
-                continue
-            args = ["specify", "extension", "add", extension_id]
-            archive_url = spec.get("archive_url")
-            if archive_url:
-                args.extend(["--from", archive_url])
-            if force:
-                args.append("--force")
-            LOG.info("Installing community extension %r from %s", rid, archive_url)
-            if _run(args) != 0:
-                LOG.error("Community extension %r installation failed.", rid)
-                ok = False
-            else:
-                LOG.info("Community extension %r installed.", rid)
-            continue
-
-        import urllib.request  # noqa: deferred
-        for entry in spec.get("files", []):
-            remote = entry["remote"]
-            local_name = entry["local"]
-            local_path = os.path.join(CURRENT_ROOT, local_name)
-            if os.path.lexists(local_path) and not force:
-                LOG.info(
-                    "'%s' already exists, skipping (use --force to overwrite).",
-                    local_name,
-                )
-                continue
-            parts = spec["source_url"].rstrip("/").split("/")
-            if len(parts) < 2:
-                LOG.error("Cannot parse owner/repo from %r for %r", spec["source_url"], rid)
-                ok = False
-                continue
-            owner, repo = parts[-2], parts[-1]
-            branch = spec.get("branch", "main")
-            raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{remote}"
-            LOG.info("Downloading %s -> %s ...", raw_url, local_name)
-            try:
-                import urllib.request
-                data = urllib.request.urlopen(raw_url, timeout=30).read()
-            except Exception as exc:
-                LOG.warning("Failed to download %s for %r: %s", remote, rid, exc)
-                ok = False
-                continue
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            with open(local_path, "wb") as handle:
-                handle.write(data)
-            LOG.info("  Wrote %s (%d bytes)", local_name, len(data))
-        LOG.info("Community resource %r installed.", rid)
-    return ok
 
 
 def _instruction_templates() -> List[tuple[str, str]]:
@@ -1070,8 +954,6 @@ def command_install(args: argparse.Namespace) -> int:
                 "workflow commands will not be available until it is "
                 "installed (specify extension add bug)."
             )
-    if args.resource:
-        install_community_resources(args.resource, force=args.force)
     LOG.info("Done.")
     return 0
 
@@ -1111,18 +993,6 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Agent harness for 'specify integration install' "
              "(default: {}, see 'specify integration list').".format(
                  DEFAULT_INTEGRATION
-             ),
-    )
-    install.add_argument(
-        "--resource",
-        action="append",
-        default=[],
-        metavar="NAME",
-        help="Install a community resource from its remote repository "
-             "(e.g. --resource memory-md). Repeatable. Spec Kit extensions "
-             "are installed from their configured GitHub archive. "
-             "Available: {}.".format(
-                 ", ".join(sorted(COMMUNITY_RESOURCES))
              ),
     )
     install.add_argument(
