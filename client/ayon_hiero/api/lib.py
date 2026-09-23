@@ -656,6 +656,178 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+def _persist_prefs_knobs(preferences, knob_names: list[str]) -> None:
+    """Force-write given knob values to the on-disk preferences file.
+
+    Args:
+        preferences (nuke.Node): The preferences node containing the knobs.
+        knob_names (list[str]): List of knob names to persist.
+
+    """
+    ver = "{}.{}".format(nuke.NUKE_VERSION_MAJOR, nuke.NUKE_VERSION_MINOR)
+    path = os.path.expandvars("$HOME/.nuke/preferences{}.nk".format(ver))
+    lines = []
+    if os.path.isfile(path):
+        with open(path) as f:
+            lines = f.readlines()
+    else:
+        log.warning(f"Preferences file does not exist at path: {path}")
+    # Build a set for O(1) lookups
+    knob_names_set = set(knob_names)
+    patched = set()
+    custom_knob_definitions = {
+        "ayon_path_remapping": (
+            'addUserKnob {1 ayon_path_remapping '
+            'l "AYON Path Remapping" +INVISIBLE}\n'
+        )
+    }
+
+    # Pattern compiled once for efficiency
+    knob_pattern = re.compile(r"^(\s*)(\S+)\s")
+    patched = set()
+    for i, line in enumerate(lines):
+        match = knob_pattern.match(line)
+        if match and match.group(2) in knob_names_set:
+            name = match.group(2)
+            knob = preferences.knob(name)
+            lines[i] = "{}{} {}\n".format(
+                match.group(1), name, knob.toScript()
+            )
+            patched.add(name)
+
+    # Nuke needs a custom knob declaration before it can read its value.
+    for name, definition in custom_knob_definitions.items():
+        if name not in knob_names_set:
+            continue
+        value_index = next(
+            (
+                index for index, line in enumerate(lines)
+                if re.match(r"^\s*{}\s".format(re.escape(name)), line)
+            ),
+            None,
+        )
+        has_definition = any(
+            "addUserKnob" in line and name in line for line in lines
+        )
+        if value_index is not None and not has_definition:
+            lines.insert(value_index, definition)
+
+    idx = next(
+        (i for i in range(len(lines) - 1, -1, -1) if lines[i].strip() == "}"),
+        len(lines),
+    )
+
+    for name in knob_names_set - patched:
+        knob = preferences.knob(name)
+        if name in custom_knob_definitions:
+            lines.insert(idx, custom_knob_definitions[name])
+            idx += 1
+        lines.insert(idx, "{} {}\n".format(name, knob.toScript()))
+        idx += 1
+
+    with open(path, "w") as f:
+        f.writelines(lines)
+
+
+def add_path_mapping() -> None:
+    """This function reads the path mappings from the project
+    settings and adds them to Hiero's path mapping table.
+    """
+    def _parse_remaps(remap_str: str) -> set[tuple[str, str, str]]:
+        """Parse a remap string into a set of path mapping tuples."""
+        tokens = remap_str.rstrip(";").split(";")
+        return {tuple(tokens[i:i + 3]) for i in range(0, len(tokens) - 2, 3)}
+
+    def _remaps_to_str(remaps: set[tuple[str, str, str]]) -> str:
+        return "".join(";".join(r) + ";" for r in sorted(remaps))
+
+    current_project_name = get_current_project_name()
+    configured_path_mappings = _configured_path_mappings(current_project_name)
+    preferences = nuke.toNode("preferences")
+    remap_knob = preferences["platformPathRemaps"]
+    if not configured_path_mappings:
+        return
+
+    # Clear previously remapping set by AYON.
+    ayon_knob = preferences.knob("ayon_path_remapping")
+    remaps = _parse_remaps(remap_knob.toScript())
+    if ayon_knob is not None:
+        # Remove previously set AYON remaps
+        remaps -= _parse_remaps(ayon_knob.value())
+    else:
+        # Create the knob if it doesn't exist
+        ayon_knob = nuke.String_Knob("ayon_path_remapping", "AYON Path Remapping")
+        ayon_knob.setFlag(nuke.INVISIBLE)
+        preferences.addKnob(ayon_knob)
+
+    # Add configured path mappings
+    # Convert to set of tuples once
+    configured_set = {tuple(m) for m in configured_path_mappings}
+    remaps |= configured_set
+
+  # Add to Hiero if not already present
+    hiero_remaps = hiero.core.pathRemappings()
+    for path_tuple in configured_set:
+        if list(path_tuple) not in hiero_remaps:
+            hiero.core.addPathRemap(*path_tuple)
+
+    # Update knobs
+    remap_knob.fromScript(_remaps_to_str(remaps))
+    ayon_knob.setValue(_remaps_to_str(configured_set))
+
+    _persist_prefs_knobs(preferences, ["platformPathRemaps", "ayon_path_remapping"])
+
+
+def _configured_path_mappings(project_name) -> set[tuple[str, str, str]]:
+    """Retrieve configured path mappings from the addon settings.
+
+    Args:
+        project_name (str): Name of the current project.
+
+    Returns:
+        set[tuple[str, str, str]]: A set of tuples containing the
+            configured path mappings for Windows, Darwin, and Linux
+            platforms.
+    """
+    project_settings = get_project_settings(project_name)
+    hiero_settings = project_settings.get("hiero", {})
+    path_mapping = hiero_settings.get("path_mapping", {})
+    if not path_mapping:
+        return set()
+
+    configured_paths: set[tuple[str, str, str]] = set()
+    if path_mapping.get("remap_anatomy_root", False):
+        anatomy = Anatomy(project_name)
+
+        def groupby(seq, n) -> list[list[str]]:
+                return [seq[i:i+n] for i in range(0, len(seq), n)]
+
+        root_paths_pform = anatomy.roots_obj.all_root_paths()
+        for root_paths_pform in groupby(root_paths_pform, 3):
+            configured_paths.add((
+                # windows
+                root_paths_pform[2],
+                # darwin
+                root_paths_pform[0],
+                # linux
+                root_paths_pform[1],
+            ))
+
+    for platform_path in path_mapping.get("platform_paths", {}):
+        pform_path = (
+            platform_path["path"]["windows"],
+            platform_path["path"]["darwin"],
+            platform_path["path"]["linux"],
+        )
+        if (
+            not any(pform_path) or
+            pform_path in configured_paths
+        ):
+            continue
+        configured_paths.add(pform_path)
+    return configured_paths
+
+
 def setup(console=False, port=None, menu=True):
     """Setup integration
 
@@ -673,6 +845,8 @@ def setup(console=False, port=None, menu=True):
         teardown()
 
     add_submission()
+    # Add path mappings for the current session
+    add_path_mapping()
 
     if menu:
         add_to_filemenu()
