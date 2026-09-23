@@ -163,7 +163,7 @@ above and `.gitignore`):
 3. `/speckit-bug-test slug=<slug>` → `test.md` — verdict
    `verified` / `partial` / `failed`; evidence only — never edit code to
    make a failing test pass. Note: run the repo's tests
-   (`[REPO_TEST_COMMAND]`) *and* exercise the original
+   (`No automated test suite is configured`) *and* exercise the original
    reproduction manually (see root `AGENTS.md`, Verification) — a
    passing test suite alone is not enough.
 
