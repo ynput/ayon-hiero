@@ -47,6 +47,7 @@ class ValidateCollectedTrackItem(
             if (
                 value.get("productBaseType") == instance.data["productBaseType"]
                 and value.get("folderPath") == instance.data["folderPath"]
+                and value.get("variant") == instance.data["variant"]
             ):
                 track_item_index = track_item.guid()
                 value["clip_index"] = track_item_index
