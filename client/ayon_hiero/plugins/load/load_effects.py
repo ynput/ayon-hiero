@@ -193,7 +193,8 @@ class LoadEffects(load.LoaderPlugin):
             "objectName": object_name,
             "name": name,
             "representation": repre_entity["id"],
-            "children_names": []
+            "children_names": [],
+            "project_name": context["project"]["name"],
         }
 
         if self._shared_loading(
@@ -294,6 +295,7 @@ class LoadEffects(load.LoaderPlugin):
                 "namespace": str(namespace),
                 "loader": str(loader),
                 "representation": context["representation"]["id"],
+                "project_name": context["project"]["name"],
             }
         }
 
