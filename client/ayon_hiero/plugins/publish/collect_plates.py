@@ -47,12 +47,6 @@ class CollectPlate(pyblish.api.InstancePlugin):
                     track_item = item
                     break
 
-        if not track_item:
-            raise PublishError(
-                'Could not retrieve item from '
-                f'clip guid: {instance.data["clip_index"]}'
-            )
-
         instance.data["trackItem"] = track_item
 
         # solve reviewable options
@@ -90,11 +84,12 @@ class CollectPlate(pyblish.api.InstancePlugin):
                 " Please ensure it is set and enabled."
             )
 
-        clip_colorspace = track_item.sourceMediaColourTransform()
+        if track_item is not None:
+            clip_colorspace = track_item.sourceMediaColourTransform()
 
-        # add colorspace data to versionData
-        version_data = instance.data.setdefault("versionData", {})
-        version_data["colorSpace"] = clip_colorspace
+            # add colorspace data to versionData
+            version_data = instance.data.setdefault("versionData", {})
+            version_data["colorSpace"] = clip_colorspace
 
-        # add colorspace data to instance
-        instance.data["colorspace"] = clip_colorspace
+            # add colorspace data to instance
+            instance.data["colorspace"] = clip_colorspace

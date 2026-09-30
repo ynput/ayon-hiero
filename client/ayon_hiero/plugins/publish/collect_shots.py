@@ -48,12 +48,15 @@ class CollectShot(pyblish.api.InstancePlugin):
         # Adjust handles:
         # Explain
         track_item = instance.data["trackItem"]
-        instance.data.update({
-            "handleStart": min(
-                instance.data["handleStart"], int(track_item.handleInLength())),
-            "handleEnd": min(
-                instance.data["handleEnd"], int(track_item.handleOutLength())),
-        })
+        if track_item is not None:
+            instance.data.update({
+                "handleStart": min(
+                    instance.data["handleStart"], int(track_item.handleInLength())
+                ),
+                "handleEnd": min(
+                    instance.data["handleEnd"], int(track_item.handleOutLength())
+                ),
+            })
 
         # Inject/Distribute instance shot data as editorialSharedData
         # to make it available for clip/plate/audio products
@@ -106,21 +109,23 @@ class CollectShot(pyblish.api.InstancePlugin):
                     track_item = item
                     break
 
-        if not track_item:
-            raise PublishError(
-                'Could not retrieve item from '
-                f'clip guid: {instance.data["clip_index"]}'
-            )
-
-        instance.data.update({
-            "annotations": self.clip_annotations(track_item.source()),
-            "trackItem": track_item,
-            "subtracks": self.clip_subtrack(track_item),
-            "tags": lib.get_track_item_tags(track_item),
-        })
+        if track_item:
+            instance.data.update({
+                "annotations": self.clip_annotations(track_item.source()),
+                "trackItem": track_item,
+                "subtracks": self.clip_subtrack(track_item),
+                "tags": lib.get_track_item_tags(track_item),
+            })
+        else:
+            instance.data.update({
+                "annotations": [],
+                "trackItem": None,
+                "subtracks": [],
+                "tags": [],
+            })
 
         # Retrieve clip from active_timeline
-        if overwrite_clip_metadata:
+        if track_item and overwrite_clip_metadata:
             source_clip = track_item.source()
             item_format = source_clip.format()
 
