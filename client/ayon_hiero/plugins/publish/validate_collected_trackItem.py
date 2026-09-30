@@ -22,7 +22,7 @@ class ValidateCollectedTrackItem(
     def process(self, instance):
         if instance.data["trackItem"] is None:
             raise PublishValidationError(
-                "Could not find track item associated to this instance. "
+                "Referenced product item is not linked to the correct clip. "
                 "This might be because the timeline clip was copied/pasted from another sequence. \n"
                 "Use 'Repair' to relink the source clip to this instance."
             )
