@@ -315,19 +315,19 @@ def _create_otio_timeline():
     metadata = _get_metadata(CTX.timeline)
 
     metadata.update({
-        "openpype.timeline.width": int(CTX.timeline.format().width()),
-        "openpype.timeline.height": int(CTX.timeline.format().height()),
-        "openpype.timeline.pixelAspect": int(CTX.timeline.format().pixelAspect()),  # noqa
-        "openpype.project.useOCIOEnvironmentOverride": project.useOCIOEnvironmentOverride(),  # noqa
-        "openpype.project.lutSetting16Bit": project.lutSetting16Bit(),
-        "openpype.project.lutSetting8Bit": project.lutSetting8Bit(),
-        "openpype.project.lutSettingFloat": project.lutSettingFloat(),
-        "openpype.project.lutSettingLog": project.lutSettingLog(),
-        "openpype.project.lutSettingViewer": project.lutSettingViewer(),
-        "openpype.project.lutSettingWorkingSpace": project.lutSettingWorkingSpace(),  # noqa
-        "openpype.project.lutUseOCIOForExport": project.lutUseOCIOForExport(),
-        "openpype.project.ocioConfigName": project.ocioConfigName(),
-        "openpype.project.ocioConfigPath": project.ocioConfigPath()
+        "ayon.timeline.width": int(CTX.timeline.format().width()),
+        "ayon.timeline.height": int(CTX.timeline.format().height()),
+        "ayon.timeline.pixelAspect": int(CTX.timeline.format().pixelAspect()),  # noqa
+        "ayon.project.useOCIOEnvironmentOverride": project.useOCIOEnvironmentOverride(),  # noqa
+        "ayon.project.lutSetting16Bit": project.lutSetting16Bit(),
+        "ayon.project.lutSetting8Bit": project.lutSetting8Bit(),
+        "ayon.project.lutSettingFloat": project.lutSettingFloat(),
+        "ayon.project.lutSettingLog": project.lutSettingLog(),
+        "ayon.project.lutSettingViewer": project.lutSettingViewer(),
+        "ayon.project.lutSettingWorkingSpace": project.lutSettingWorkingSpace(),  # noqa
+        "ayon.project.lutUseOCIOForExport": project.lutUseOCIOForExport(),
+        "ayon.project.ocioConfigName": project.ocioConfigName(),
+        "ayon.project.ocioConfigPath": project.ocioConfigPath()
     })
 
     start_time = create_otio_rational_time(

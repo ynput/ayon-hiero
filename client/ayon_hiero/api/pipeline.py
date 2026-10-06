@@ -1,7 +1,6 @@
 """
-Basic avalon integration
+Basic AYON integration
 """
-from copy import deepcopy
 import os
 import contextlib
 from collections import OrderedDict
@@ -45,8 +44,7 @@ PUBLISH_PATH = os.path.join(PLUGINS_DIR, "publish").replace("\\", "/")
 LOAD_PATH = os.path.join(PLUGINS_DIR, "load").replace("\\", "/")
 CREATE_PATH = os.path.join(PLUGINS_DIR, "create").replace("\\", "/")
 
-AVALON_CONTAINERS = ":AVALON_CONTAINERS"
-
+CONTAINER_SCHEMA = "ayon:container-3.0"
 
 
 class HieroHost(
@@ -124,7 +122,7 @@ def containerise(track_item,
     """
 
     data_imprint = OrderedDict({
-        "schema": "ayon:container-3.0",
+        "schema": CONTAINER_SCHEMA,
         "id": AYON_CONTAINER_ID,
         "name": str(name),
         "namespace": str(namespace),
@@ -150,8 +148,7 @@ def ls():
     need to implement a for-loop that then *yields* one Container at
     a time.
 
-    See the `container.json` schema for details on how it should look,
-    and the Maya equivalent, which is in `avalon.maya.pipeline`
+    See the `container.json` schema for details on how it should look.
     """
 
     # get all track items from current timeline
@@ -179,36 +176,58 @@ def ls():
 
     for tag_item in tag_bin.items():
         tag_data = tags.get_tag_data(tag_item)
-        if tag_data.get("schema") == "ayon:container-3.0":
+        if tag_data.get("schema") == CONTAINER_SCHEMA:
             yield tag_data
 
 
+def _convert_legacy_container_data(data):
+    """Convert legacy (OpenPype) container data to AYON container data.
+
+    Args:
+        data (Any): Data stored on container tag.
+
+    Returns:
+        Any: AYON container data, or unchanged input if the data are
+            not data of legacy container.
+
+    """
+    if (
+        not isinstance(data, dict)
+        or data.get("id") != AVALON_CONTAINER_ID
+    ):
+        return data
+
+    data = dict(data)
+    data["id"] = AYON_CONTAINER_ID
+    data["schema"] = CONTAINER_SCHEMA
+    return data
+
+
 def parse_container(item, validate=True):
-    """Return container data from track_item's pype tag.
+    """Return container data from track_item's AYON tag.
+
+    Data of containers loaded with OpenPype are converted to AYON container
+    data. The conversion is stored to the item on container update.
 
     Args:
         item (hiero.core.TrackItem or hiero.core.VideoTrack):
             A containerised track item.
-        validate (bool)[optional]: validating with avalon scheme
+        validate (bool)[optional]: validating with container schema
 
     Returns:
         dict: The container schema data for input containerized track item.
 
     """
     def data_to_container(item, data):
+        data = _convert_legacy_container_data(data)
         if (
-            not data
-            or data.get("id") not in {
-                AYON_CONTAINER_ID, AVALON_CONTAINER_ID
-            }
+            not isinstance(data, dict)
+            or data.get("id") != AYON_CONTAINER_ID
         ):
             return
 
-        if validate and data and data.get("schema"):
+        if validate and data.get("schema"):
             schema.validate(data)
-
-        if not isinstance(data, dict):
-            return
 
         # If not all required data return the empty container
         required = ['schema', 'id', 'name',
@@ -236,9 +255,10 @@ def parse_container(item, validate=True):
         if not _data:
             return
         # convert the data to list and validate them
-        for _, obj_data in _data.items():
+        for obj_data in _data.values():
             container = data_to_container(item, obj_data)
-            return_list.append(container)
+            if container:
+                return_list.append(container)
         return return_list
     else:
         _data = lib.get_trackitem_ayon_data(item)
@@ -260,6 +280,8 @@ def update_container(item, data=None):
     """Update container data to input track_item or track's
     AYON tag.
 
+    Containers loaded with OpenPype are stored as AYON containers.
+
     Args:
         item (hiero.core.TrackItem or hiero.core.VideoTrack):
             A containerised track item.
@@ -271,27 +293,29 @@ def update_container(item, data=None):
     """
 
     data = data or {}
-    data = deepcopy(data)
 
     if type(item) is hiero.core.VideoTrack:
         # form object data for test
         object_name = data["objectName"]
 
         # get all available containers
-        containers = lib.get_track_ayon_data(item)
-        container = lib.get_track_ayon_data(item, object_name)
+        containers = {
+            name: _convert_legacy_container_data(container)
+            for name, container in (
+                lib.get_track_ayon_data(item) or {}
+            ).items()
+        }
 
-        containers = deepcopy(containers)
-        container = deepcopy(container)
-
-        # update data in container
-        updated_container = _update_container_data(container, data)
         # merge updated container back to containers
-        containers.update({object_name: updated_container})
+        containers[object_name] = _update_container_data(
+            containers.get(object_name), data
+        )
 
         return bool(lib.set_track_ayon_tag(item, containers))
     else:
-        container = lib.get_trackitem_ayon_data(item)
+        container = _convert_legacy_container_data(
+            lib.get_trackitem_ayon_data(item)
+        )
         updated_container = _update_container_data(container, data)
 
         log.info("Updating container: `{}`".format(item.name()))

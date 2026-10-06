@@ -93,7 +93,7 @@ class LoadClip(phiero.SequenceLoader):
         if colorspace:
             track_item.source().setSourceMediaColourTransform(colorspace)
 
-        # add additional metadata from the version to imprint Avalon knob
+        # add additional metadata from the version to imprint AYON tag
         add_keys = [
             "frameStart", "frameEnd", "source", "author",
             "fps", "handleStart", "handleEnd"

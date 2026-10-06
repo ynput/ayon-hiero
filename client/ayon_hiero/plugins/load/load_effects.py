@@ -7,6 +7,7 @@ from ayon_core.pipeline import (
     get_representation_path,
 )
 from ayon_hiero import api as phiero
+from ayon_hiero.api.pipeline import CONTAINER_SCHEMA
 from ayon_core.lib import Logger
 
 
@@ -289,7 +290,7 @@ class LoadEffects(load.LoaderPlugin):
 
         data_imprint = {
             object_name: {
-                "schema": "ayon:container-3.0",
+                "schema": CONTAINER_SCHEMA,
                 "id": AYON_CONTAINER_ID,
                 "name": str(name),
                 "namespace": str(namespace),

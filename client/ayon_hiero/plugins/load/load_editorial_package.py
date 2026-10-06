@@ -9,6 +9,7 @@ from ayon_core.pipeline import (
 )
 
 from ayon_hiero.api import lib, tags
+from ayon_hiero.api.pipeline import CONTAINER_SCHEMA
 
 import hiero.core
 
@@ -34,7 +35,7 @@ class LoadEditorialPackage(load.LoaderPlugin):
             seq: hiero.core.Sequence
         ) -> Dict[str, str]:
         return {
-            "schema": "ayon:container-3.0",
+            "schema": CONTAINER_SCHEMA,
             "id": AYON_CONTAINER_ID,
             "loader": str(cls.__name__),
             "representation": context["representation"]["id"],
