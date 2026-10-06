@@ -28,7 +28,7 @@ from ayon_core.tools.utils import host_tools
 
 from ayon_hiero import HIERO_ADDON_ROOT
 
-from . import lib, tags, menu, events
+from . import lib, tags, menu, events, constants
 from .workio import (
     open_file,
     save_file,
@@ -92,12 +92,36 @@ class HieroHost(
         events.register_hiero_events()
 
     def get_context_data(self):
-        # TODO: implement to support persisting context attributes
-        return {}
+        """Get publish context data stored in the project.
+
+        Returns:
+            dict: The context data, empty if nothing was stored yet.
+        """
+        context_tag = tags.get_or_create_workfile_tag(
+            constants.AYON_CONTEXT_TAG_NAME
+        )
+        if context_tag is None:
+            return {}
+
+        return tags.get_tag_data(context_tag)
 
     def update_context_data(self, data, changes):
-        # TODO: implement to support persisting context attributes
-        pass
+        """Store publish context data to project tag in AYON tag bin.
+
+        Args:
+            data (dict): The context data to store.
+            changes (dict): Only the data that changed. Not used, the tag
+                does always store all the data.
+        """
+        context_tag = tags.get_or_create_workfile_tag(
+            constants.AYON_CONTEXT_TAG_NAME,
+            create=True
+        )
+        tag_data = {
+            "metadata": data,
+            "note": "AYON context data"
+        }
+        tags.update_tag(context_tag, tag_data)
 
 
 def containerise(track_item,
