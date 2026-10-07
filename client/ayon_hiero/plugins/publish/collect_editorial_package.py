@@ -13,6 +13,10 @@ class CollectEditorialPackages(pyblish.api.InstancePlugin):
         current_project = lib.get_current_project()
         all_sequences = current_project.sequences()
         hiero_sequence_guid = instance.data["guid"]
+        review_switch = instance.data["creator_attributes"].get(
+            "review")
+        if review_switch and "review" not in instance.data["families"]:
+            instance.data["families"].append("review")
 
         hiero_sequence = None
         for sequence in all_sequences:
