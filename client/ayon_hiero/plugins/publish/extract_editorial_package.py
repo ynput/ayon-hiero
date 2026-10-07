@@ -18,7 +18,7 @@ class ExtractEditorialPackage(publish.Extractor):
     """Extract and Render intermediate file for Editorial Package"""
 
     label = "Extract Editorial Package"
-    order = pyblish.api.ExtractorOrder + 0.45
+    order = pyblish.api.ExtractorOrder
     families = ["editorial_pkg"]
 
     @staticmethod
@@ -89,6 +89,14 @@ class ExtractEditorialPackage(publish.Extractor):
         temp_dir = self.staging_dir(instance)
         seq = instance.data["hiero_sequence"]
 
+        # get frame start and end and add it to instance data and representation
+        fps = seq.framerate().toFloat()
+        frame_start = int(seq.timecodeStart())
+        frame_end = frame_start + int(seq.duration()) - 1
+        instance.data["frameStart"] = frame_start
+        instance.data["frameEnd"] = frame_end
+        instance.data["fps"] = fps
+
         # Export timeline as consolidated media
         output_video = os.path.join(
             temp_dir,
@@ -103,6 +111,9 @@ class ExtractEditorialPackage(publish.Extractor):
             "ext": "mov",
             "files": os.path.basename(output_video),
             "stagingDir": temp_dir,
+            "frameStart": frame_start,
+            "frameEnd": frame_end,
+            "fps": fps,
             "tags": ["review"]
         }
         instance.data["representations"].append(intermediate_repre)
