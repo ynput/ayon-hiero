@@ -162,6 +162,9 @@ def get_or_create_workfile_tag(
             and item.name() == tag_name):
             return item
 
+    if not create:
+        return None
+
     workfile_tag = hiero.core.Tag(tag_name)
     tag_bin.addItem(workfile_tag)
     return workfile_tag
