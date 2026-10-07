@@ -2,14 +2,12 @@
 Host specific functions where host api is connected
 """
 
-from copy import deepcopy
 import os
 import re
 import platform
 import functools
 import warnings
 import json
-import ast
 import secrets
 import hiero
 import nuke
@@ -23,8 +21,6 @@ from ayon_core.settings import get_project_settings
 from ayon_core.pipeline import (
     Anatomy,
     get_current_project_name,
-    AYON_INSTANCE_ID,
-    AVALON_INSTANCE_ID,
     registered_host,
 )
 from ayon_core.pipeline.load import filter_containers
@@ -32,6 +28,7 @@ from ayon_core.lib import Logger
 from . import tags
 from .constants import (
     AYON_TAG_NAME,
+    LEGACY_OPENPYPE_TAG_NAME,
     DEFAULT_SEQUENCE_NAME,
     DEFAULT_BIN_NAME
 )
@@ -363,6 +360,84 @@ def _get_tag_unique_hash():
     return secrets.token_hex(nbytes=4)
 
 
+def _get_ayon_tag(item, tag_name=AYON_TAG_NAME, legacy=False):
+    """Get AYON tag from track or track item.
+
+    Args:
+        item (Union[hiero.core.TrackItem, hiero.core.VideoTrack]): hiero
+            object
+        tag_name (str): The tag name.
+        legacy (bool): Fallback to legacy (OpenPype) tag when the item
+            does not have AYON tag.
+
+    Returns:
+        Optional[hiero.core.Tag]: The tag if there is any.
+    """
+    legacy_tag = None
+    for tag in item.tags():
+        name = tag.name()
+        # return only correct tag defined by global name
+        if tag_name in name:
+            return tag
+        if legacy and legacy_tag is None and LEGACY_OPENPYPE_TAG_NAME in name:
+            legacy_tag = tag
+    return legacy_tag
+
+
+def _set_ayon_tag(item, data=None):
+    """Set AYON tag with data to track or track item.
+
+    Legacy (OpenPype) tags of the item are removed when new AYON tag
+    is created, because the AYON tag does replace them.
+
+    Args:
+        item (Union[hiero.core.TrackItem, hiero.core.VideoTrack]): hiero
+            object
+        data (Optional[dict]): Data to store to the tag.
+
+    Returns:
+        hiero.core.Tag
+    """
+    # basic Tag's attribute
+    tag_data = {
+        "editable": "0",
+        "note": "AYON data container",
+        "icon": "AYON_icon.png",
+        "metadata": dict(data or {})
+    }
+    # get available AYON tag if any
+    tag = _get_ayon_tag(item)
+    if tag:
+        # if AYON tag available then update with input data
+        return tags.update_tag(tag, tag_data)
+
+    # if not tag then create one
+    tag = tags.create_tag(
+        "{}_{}".format(
+            AYON_TAG_NAME,
+            _get_tag_unique_hash()
+        ),
+        tag_data
+    )
+    # add it to the input item
+    item.addTag(tag)
+    remove_legacy_tags(item)
+
+    return tag
+
+
+def remove_legacy_tags(item):
+    """Remove legacy (OpenPype) tags from track or track item.
+
+    Args:
+        item (Union[hiero.core.TrackItem, hiero.core.VideoTrack]): hiero
+            object
+    """
+    for tag in item.tags():
+        if LEGACY_OPENPYPE_TAG_NAME in tag.name():
+            item.removeTag(tag)
+
+
 def set_track_ayon_tag(track, data=None):
     """
     Set AYON track tag to input track object.
@@ -373,88 +448,51 @@ def set_track_ayon_tag(track, data=None):
     Returns:
         hiero.core.Tag
     """
-    data = data or {}
-
-    # basic Tag's attribute
-    tag_data = {
-        "editable": "0",
-        "note": "AYON data container",
-        "icon": "AYON_icon.png",
-        "metadata": dict(data.items())
-    }
-    # get available pype tag if any
-    _tag = get_track_ayon_tag(track)
-
-    if _tag:
-        # it not tag then create one
-        tag = tags.update_tag(_tag, tag_data)
-    else:
-        # if pype tag available then update with input data
-        tag = tags.create_tag(
-            "{}_{}".format(
-                AYON_TAG_NAME,
-                _get_tag_unique_hash()
-            ),
-            tag_data
-        )
-        # add it to the input track item
-        track.addTag(tag)
-
-    return tag
+    return _set_ayon_tag(track, data)
 
 
-def get_track_ayon_tag(track):
+def get_track_ayon_tag(track, tag_name=AYON_TAG_NAME):
     """
-    Get AYON track item tag created by creator or loader plugin.
+    Get AYON track tag created by loader plugin.
 
     Attributes:
-        trackItem (hiero.core.TrackItem): hiero object
+        track (hiero.core.VideoTrack): hiero object
+        tag_name (str): The tag name.
 
     Returns:
         hiero.core.Tag: hierarchy, orig clip attributes
     """
-    # get all tags from track item
-    _tags = track.tags()
-    if not _tags:
-        return None
-    for tag in _tags:
-        # return only correct tag defined by global name
-        if AYON_TAG_NAME in tag.name():
-            return tag
+    return _get_ayon_tag(track, tag_name)
 
 
 def get_track_ayon_data(track, container_name=None):
     """
     Get track's AYON tag data.
 
+    Data of legacy (OpenPype) tag are returned if the track does not
+    have AYON tag.
+
     Attributes:
-        trackItem (hiero.core.VideoTrack): hiero object
+        track (hiero.core.VideoTrack): hiero object
 
     Returns:
         dict: data found on the AYON tag
     """
-    return_data = {}
-    # get pype data tag from track item
-    tag = get_track_ayon_tag(track)
-
+    tag = _get_ayon_tag(track, legacy=True)
     if not tag:
         return None
 
-    # get tag metadata attribute
-    tag_data = deepcopy(dict(tag.metadata()))
-    if tag_data.get("tag.json_metadata"):
-        tag_data = json.loads(tag_data["tag.json_metadata"])
+    return_data = {}
+    for obj_name, obj_data in tags.get_tag_data(tag, legacy=True).items():
+        if isinstance(obj_data, str):
+            # legacy tag stored each container as json string
+            try:
+                obj_data = json.loads(obj_data)
+            except json.JSONDecodeError:
+                continue
 
-    ignore_names  = {"applieswhole", "note", "label"}
-    for obj_name, obj_data in tag_data.items():
-        obj_name = obj_name.replace("tag.", "")
-
-        if obj_name in ignore_names:
-            continue
         if isinstance(obj_data, dict):
             return_data[obj_name] = obj_data
-        else:
-            return_data[obj_name] = json.loads(obj_data)
 
     return (
         return_data[container_name]
@@ -465,7 +503,7 @@ def get_track_ayon_data(track, container_name=None):
 
 def get_trackitem_ayon_tag(track_item, tag_name=AYON_TAG_NAME):
     """
-    Get pype track item tag created by creator or loader plugin.
+    Get AYON track item tag created by creator or loader plugin.
 
     Attributes:
         trackItem (hiero.core.TrackItem): hiero object
@@ -474,108 +512,45 @@ def get_trackitem_ayon_tag(track_item, tag_name=AYON_TAG_NAME):
     Returns:
         hiero.core.Tag: hierarchy, orig clip attributes
     """
-    # get all tags from track item
-    _tags = track_item.tags()
-    if not _tags:
-        return None
-    for tag in _tags:
-        # return only correct tag defined by global name
-        if tag_name in tag.name():
-            return tag
+    return _get_ayon_tag(track_item, tag_name)
 
 
 def set_trackitem_ayon_tag(track_item, data=None):
     """
-    Set AYON track tag to input track object.
+    Set AYON track item tag to input track item object.
 
     Attributes:
-        track (hiero.core.VideoTrack): hiero object
+        track_item (hiero.core.TrackItem): hiero object
 
     Returns:
         hiero.core.Tag
     """
-    data = data or {}
-
-    # basic Tag's attribute
-    tag_data = {
-        "editable": "0",
-        "note": "AYON data container",
-        "icon": "AYON_icon.png",
-        "metadata": dict(data.items())
-    }
-    # get available pype tag if any
-    _tag = get_trackitem_ayon_tag(track_item)
-    if _tag:
-        # if pype tag available then update with input data
-        tag = tags.update_tag(_tag, tag_data)
-    else:
-        # it not tag then create one
-        tag = tags.create_tag(
-            "{}_{}".format(
-                AYON_TAG_NAME,
-                _get_tag_unique_hash()
-            ),
-            tag_data
-        )
-        # add it to the input track item
-        track_item.addTag(tag)
-
-    return tag
+    return _set_ayon_tag(track_item, data)
 
 
 def get_trackitem_ayon_data(track_item):
     """
     Get track item's AYON tag data.
 
+    Data of legacy (OpenPype) tag are returned if the track item does not
+    have AYON tag.
+
     Attributes:
         trackItem (hiero.core.TrackItem): hiero object
 
     Returns:
-        dict: data found on pype tag
+        dict: data found on the AYON tag
     """
-    data = {}
-    # get pype data tag from track item
-    tag = get_trackitem_ayon_tag(track_item)
-
+    tag = _get_ayon_tag(track_item, legacy=True)
     if not tag:
         return None
 
-    # get tag metadata attribute
-    tag_data = deepcopy(dict(tag.metadata()))
-    if tag_data.get("tag.json_metadata"):
-        return json.loads(tag_data.get("tag.json_metadata"))
-
-    # convert tag metadata to normal keys names and values to correct types
-    for k, v in tag_data.items():
-        key = k.replace("tag.", "")
-
-        try:
-            # capture exceptions which are related to strings only
-            if re.match(r"^[\d]+$", v):
-                value = int(v)
-            elif re.match(r"^True$", v):
-                value = True
-            elif re.match(r"^False$", v):
-                value = False
-            elif re.match(r"^None$", v):
-                value = None
-            elif re.match(r"^[\w\d_]+$", v):
-                value = v
-            else:
-                value = ast.literal_eval(v)
-        except (ValueError, SyntaxError):
-            value = v
-
-        data[key] = value
-
-    return data
+    return tags.get_tag_data(tag, legacy=True)
 
 
 def imprint(track_item, data=None):
     """
-    Adding `Avalon data` into a hiero track item tag.
-
-    Also including publish attribute into tag.
+    Adding AYON data into a hiero track item tag.
 
     Arguments:
         track_item (hiero.core.TrackItem): hiero track item object
@@ -593,7 +568,7 @@ def imprint(track_item, data=None):
     set_trackitem_ayon_tag(track_item, data)
 
 
-def sync_avalon_data_to_workfile():
+def sync_project_attributes_to_workfile():
     # import session to get project dir
     project_name = get_current_project_name()
 
@@ -611,7 +586,7 @@ def sync_avalon_data_to_workfile():
     if "Tag Presets" in project.name():
         return
 
-    log.debug("Synchronizing Pype metadata to project: {}".format(
+    log.debug("Synchronizing AYON project to project: {}".format(
         project.name()))
 
     # set project root with backward compatibility
@@ -621,13 +596,13 @@ def sync_avalon_data_to_workfile():
         # old way of setting it
         project.setProjectRoot(active_project_root)
 
-    # get project data from avalon db
+    # get project entity from AYON server
     project_entity = ayon_api.get_project(project_name)
     project_attribs = project_entity["attrib"]
 
     log.debug("project attributes: {}".format(project_attribs))
 
-    # get format and fps property from avalon db on project
+    # get format and fps from AYON project attributes
     width = project_attribs["resolutionWidth"]
     height = project_attribs["resolutionHeight"]
     pixel_aspect = project_attribs["pixelAspect"]
@@ -642,7 +617,7 @@ def sync_avalon_data_to_workfile():
     project.setFramerate(fps)
 
     # TODO: add auto colorspace set from project drop
-    log.info("Project property has been synchronised with Avalon db")
+    log.info("Project property has been synchronised with AYON project")
 
 
 def launch_workfiles_app(event):
@@ -1350,41 +1325,6 @@ def get_sequence_pattern_and_padding(file):
     return found, padding
 
 
-def sync_clip_name_to_data_asset(track_items_list):
-    # loop through all selected clips
-    for track_item in track_items_list:
-        # ignore if parent track is locked or disabled
-        if track_item.parent().isLocked():
-            continue
-        if not track_item.parent().isEnabled():
-            continue
-        # ignore if the track item is disabled
-        if not track_item.isEnabled():
-            continue
-
-        # get name and data
-        ti_name = track_item.name()
-        data = get_trackitem_ayon_data(track_item)
-
-        # ignore if no data on the clip or not publish instance
-        if not data:
-            continue
-        if data.get("id") not in {
-            AYON_INSTANCE_ID, AVALON_INSTANCE_ID
-        }:
-            continue
-
-        # fix data if wrong name
-        if data["asset"] != ti_name:
-            data["asset"] = ti_name
-            # remove the original tag
-            tag = get_trackitem_ayon_tag(track_item)
-            track_item.removeTag(tag)
-            # create new tag with updated data
-            set_trackitem_ayon_tag(track_item, data)
-            print("asset was changed in clip: {}".format(ti_name))
-
-
 def set_track_color(track_item, color):
     track_item.source().binItem().setColor(color)
 
@@ -1425,27 +1365,6 @@ def check_inventory_versions(track_items=None):
         set_track_color(container["_item"], clip_color)
 
 
-def selection_changed_timeline(event):
-    """Callback on timeline to check if asset in data is the same as clip name.
-
-    Args:
-        event (hiero.core.Event): timeline event
-    """
-    timeline_editor = event.sender
-    selection = timeline_editor.selection()
-
-    track_items = get_track_items(
-        selection=selection,
-        track_type="video",
-        check_enabled=True,
-        check_locked=True,
-        check_tagged=True
-    )
-
-    # run checking function
-    sync_clip_name_to_data_asset(track_items)
-
-
 def before_project_save(event):
     track_items = get_track_items(
         track_type="video",
@@ -1454,10 +1373,7 @@ def before_project_save(event):
         check_tagged=True
     )
 
-    # run checking function
-    sync_clip_name_to_data_asset(track_items)
-
-    # also mark old versions of loaded containers
+    # mark old versions of loaded containers
     check_inventory_versions(track_items)
 
 

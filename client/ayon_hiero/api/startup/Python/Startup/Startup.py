@@ -1,6 +1,6 @@
 import traceback
 
-# activate hiero from pype
+# activate AYON integration in hiero
 from ayon_core.pipeline import install_host
 from ayon_hiero.api import HieroHost
 

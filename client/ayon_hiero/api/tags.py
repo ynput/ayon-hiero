@@ -1,5 +1,6 @@
 from typing import Optional
 
+import ast
 import json
 import re
 import hiero
@@ -13,6 +14,11 @@ from . import constants
 
 
 log = Logger.get_logger(__name__)
+
+# Tag metadata key where AYON data are stored as json string
+_JSON_METADATA_KEY = "tag.json_metadata"
+# Metadata keys set by Hiero itself on each tag
+_HIERO_TAG_KEYS = {"applieswhole", "note", "label"}
 
 
 def tag_data():
@@ -92,7 +98,7 @@ def update_tag(tag, data):
     data_mtd = data.get("metadata", {})
 
     mtd.setValue(
-        "tag.json_metadata",
+        _JSON_METADATA_KEY,
         json.dumps(data_mtd)
     )
     # set note description of tag
@@ -102,22 +108,65 @@ def update_tag(tag, data):
     return tag
 
 
-def get_tag_data(tag):
+def get_tag_data(tag, legacy=False):
     """
+    Args:
+        tag (hiero.core.Tag): The tag to retrieve data from.
+        legacy (bool): Fallback to legacy (OpenPype) tag metadata when
+            the tag has no AYON data.
+
+    Returns:
+        dict. The tag data.
+    """
+    metadata = tag.metadata()
+    if not metadata.hasKey(_JSON_METADATA_KEY):
+        return get_legacy_tag_data(tag) if legacy else {}
+
+    try:
+        return json.loads(metadata.value(_JSON_METADATA_KEY))
+
+    except json.JSONDecodeError:
+        return {}
+
+
+def get_legacy_tag_data(tag):
+    """Get data of legacy (OpenPype) tag.
+
+    The data used to be stored as separate 'tag.<key>' metadata with
+    stringified values, AYON stores all data as single json string instead.
+    This is only used to read data of tags created before that change.
+
     Args:
         tag (hiero.core.Tag): The tag to retrieve data from.
 
     Returns:
         dict. The tag data.
     """
-    tag_data = dict(tag.metadata())
+    data = {}
+    for key, value in tag.metadata().dict().items():
+        key = key.replace("tag.", "")
+        if key in _HIERO_TAG_KEYS:
+            continue
 
-    try:
-        json_data = tag_data["tag.json_metadata"]
-        return json.loads(json_data)
+        # convert stringified values to correct types
+        try:
+            # capture exceptions which are related to strings only
+            if re.match(r"^[\d]+$", value):
+                value = int(value)
+            elif value == "True":
+                value = True
+            elif value == "False":
+                value = False
+            elif value == "None":
+                value = None
+            elif not re.match(r"^[\w\d_]+$", value):
+                value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
 
-    except (KeyError, json.JSONDecodeError):
-        return {}
+        data[key] = value
+
+    return data
 
 
 def get_workfile_bin(

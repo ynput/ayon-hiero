@@ -34,7 +34,7 @@ def get_context_label():
 
 
 def update_menu_task_label():
-    """Update the task label in Avalon menu to current session"""
+    """Update the task label in AYON menu to current context"""
 
     object_name = self._change_context_menu
     found_menu = findMenuAction(object_name)

@@ -1,9 +1,11 @@
+import collections
 import copy
 import json
 
 from ayon_hiero.api import constants, plugin, lib, tags
 
 from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
+from ayon_core.pipeline import AVALON_CONTAINER_ID, AYON_CONTAINER_ID
 from ayon_core.pipeline.create import (
     CreatorError,
     CreatedInstance,
@@ -137,21 +139,21 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             update_list(List[UpdateData]): Gets list of tuples. Each item
                 contain changed instance and it's changes.
         """
+        legacy_track_items = []
         for created_inst, _changes in update_list:
             track_item = created_inst.transient_data["track_item"]
             tag = lib.get_trackitem_ayon_tag(track_item)
+            if tag is None:
+                # Instance was collected from legacy (OpenPype) tag
+                legacy_track_items.append(track_item)
+                continue
+
             tag_data = tags.get_tag_data(tag)
-
-            try:
-                instances_data = tag_data[_CONTENT_ID]
-
-            # Backwards compatible (Deprecated since 24/09/05)
-            except KeyError:
-                tag_data[_CONTENT_ID] = {}
-                instances_data = tag_data[_CONTENT_ID]
-
+            instances_data = tag_data.setdefault(_CONTENT_ID, {})
             instances_data[self.identifier] = created_inst.data_to_store()
             tags.update_tag(tag, {"metadata": tag_data})
+
+        self._convert_legacy_tags(legacy_track_items)
 
     def remove_instances(self, instances):
         """Remove instance marker from track item.
@@ -160,13 +162,20 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             instance(List[CreatedInstance]): Instance objects which should be
                 removed.
         """
+        legacy_track_items = []
         for instance in instances:
             track_item = instance.transient_data["track_item"]
+            self._remove_instance_from_context(instance)
+
             tag = lib.get_trackitem_ayon_tag(track_item)
+            if tag is None:
+                # Instance was collected from legacy (OpenPype) tag
+                legacy_track_items.append(track_item)
+                continue
+
             tag_data = tags.get_tag_data(tag)
             instances_data = tag_data.get(_CONTENT_ID, {})
             instances_data.pop(self.identifier, None)
-            self._remove_instance_from_context(instance)
 
             # Remove markers if deleted all of the instances
             if not instances_data:
@@ -175,6 +184,48 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             # Push edited data in marker
             else:
                 tags.update_tag(tag, {"metadata": tag_data})
+
+        self._convert_legacy_tags(legacy_track_items)
+
+    def _convert_legacy_tags(self, track_items):
+        """Convert legacy (OpenPype) tag of clips to AYON tag.
+
+        All instances collected from the legacy tag of a clip are stored
+        into new AYON tag and the legacy tag is removed.
+
+        Args:
+            track_items (List[hiero.core.TrackItem]): Clips with instances
+                collected from legacy tag.
+        """
+        if not track_items:
+            return
+
+        track_items_by_clip = {
+            track_item.guid(): track_item
+            for track_item in track_items
+        }
+        instances_by_clip = {clip: {} for clip in track_items_by_clip}
+        for instance in self.create_context.instances:
+            clip_instances = instances_by_clip.get(instance.get("clip_index"))
+            if clip_instances is not None:
+                clip_instances[instance.creator_identifier] = (
+                    instance.data_to_store()
+                )
+
+        for clip, track_item in track_items_by_clip.items():
+            clip_instances = instances_by_clip[clip]
+            # All instances of the clip were removed
+            if not clip_instances:
+                lib.remove_legacy_tags(track_item)
+                continue
+
+            lib.imprint(
+                track_item,
+                data={
+                    _CONTENT_ID: clip_instances,
+                    "clip_index": clip,
+                }
+            )
 
 
 class HieroShotInstanceCreator(_HieroInstanceCreator):
@@ -586,6 +637,13 @@ OTIO file.
             audio_creator_id: True,
         }
 
+        # Instances previously generated for the clips
+        prev_instances_by_clip = collections.defaultdict(list)
+        for instance in self.create_context.instances:
+            track_item = instance.transient_data.get("track_item")
+            if track_item is not None:
+                prev_instances_by_clip[track_item.guid()].append(instance)
+
         instances = []
         all_shot_instances = {}
         vertical_clip_match = {}
@@ -618,17 +676,13 @@ OTIO file.
             _instance_data.update(publish_clip.tag_data)
 
             # Delete any existing instances previously generated for the clip.
-            prev_tag = lib.get_trackitem_ayon_tag(track_item)
-            if prev_tag:
-                prev_tag_data = tags.get_tag_data(prev_tag)
-                for creator_id, inst_data in prev_tag_data.get(_CONTENT_ID, {}).items():
-                    creator = self.create_context.creators[creator_id]
-                    prev_instances = [
-                        inst for inst_id, inst
-                        in self.create_context.instances_by_id.items()
-                        if inst_id == inst_data["instance_id"]
-                    ]
-                    creator.remove_instances(prev_instances)
+            for prev_instance in prev_instances_by_clip.pop(
+                track_item.guid(), []
+            ):
+                creator = self.create_context.creators[
+                    prev_instance.creator_identifier
+                ]
+                creator.remove_instances([prev_instance])
 
             # Create new product(s) instances.
             shot_folder_path = _instance_data["folderPath"]
@@ -780,7 +834,11 @@ OTIO file.
         return instance
 
     def _collect_legacy_instance(self, track_item):
-        """Collect a legacy instance from previous creator if any.#
+        """Collect a legacy instance from previous creator if any.
+
+        The legacy (OpenPype) tag is not touched during collection. It is
+        converted to AYON tag when the collected instances are stored
+        with 'update_instances'.
 
         Args:
             track_item (obj): The Hiero track_item to inspect.
@@ -792,9 +850,11 @@ OTIO file.
         if not tag:
             return
 
-        data = tag.metadata()
+        data = tag.metadata().dict()
+        # Legacy tag of loaded container is not an instance
+        if data.get("tag.id") in {AVALON_CONTAINER_ID, AYON_CONTAINER_ID}:
+            return
 
-        clip_instances = {}
         instance_data = {
             "clip_index": track_item.guid(),
             "task": None,
@@ -822,10 +882,12 @@ OTIO file.
             "tag.sourceResolution": ("sourceResolution", bool),
             "tag.hierarchy": ("hierarchy", str),
             "tag.hierarchyData": ("hierarchyData", json),
-            # TODO: Asset keys should not be used anymore (remove legacy names)
+            # OpenPype stored folder name as 'asset' or 'asset_name'
+            #   and product name as 'subset'
+            "tag.asset": ("folderName", str),
             "tag.asset_name": ("folderName", str),
-            "tag.asset": ("productName", str),
             "tag.active": ("active", bool),
+            "tag.subset": ("productName", str),
             "tag.productName": ("productName", str),
             "tag.parents": ("parents", json),
         }
@@ -855,7 +917,7 @@ OTIO file.
             try:
                 instance_data["folderPath"] = (
                     "/" + instance_data["hierarchy"] + "/" +
-                    instance_data["productName"]
+                    instance_data["folderName"]
                 )
             except KeyError:
                 instance_data["folderPath"] = "unknown"
@@ -863,6 +925,12 @@ OTIO file.
 
         if "tag.subset" in data:
             instance_data["variant"] = data["tag.subset"].replace("plate", "")
+
+        if "productName" not in instance_data:
+            instance_data["productName"] = "{}{}".format(
+                instance_data["productType"] or "plate",
+                instance_data["variant"].capitalize()
+            )
 
         for folder in instance_data.get("parents", []):
             if "entity_name" in folder:
@@ -876,10 +944,11 @@ OTIO file.
         workfileFrameStart = \
             sub_instance_data["workfileFrameStart"]
         sub_instance_data.update({
-            "label": (
-                f"{sub_instance_data['folderPath']} "
-                f"{sub_instance_data['productName']}"),
             "variant": "main",
+            "productType": "shot",
+            "productBaseType": "shot",
+            "productName": "shotMain",
+            "label": f"{sub_instance_data['folderPath']} shotMain",
             "creator_attributes": {
                 "workfileFrameStart": workfileFrameStart,
                 "handleStart": sub_instance_data["handleStart"],
@@ -901,7 +970,6 @@ OTIO file.
         instance = creator.create(sub_instance_data)
         instance.transient_data["track_item"] = track_item
         self._add_instance_to_context(instance)
-        clip_instances[shot_creator_id] = instance.data_to_store()
         parenting_data = instance
 
         # Create plate/audio instance
@@ -918,6 +986,14 @@ OTIO file.
         for sub_creator_id in sub_creators:
             sub_instance_data = instance_data.copy()
             creator = self.create_context.creators[sub_creator_id]
+            if sub_creator_id == EditorialAudioInstanceCreator.identifier:
+                sub_instance_data.update({
+                    "variant": "main",
+                    "productType": "audio",
+                    "productBaseType": "audio",
+                    "productName": "audioMain",
+                })
+
             sub_instance_data.update(
                 {
                     "parent_instance_id": parenting_data["instance_id"],
@@ -937,17 +1013,6 @@ OTIO file.
             instance = creator.create(sub_instance_data)
             instance.transient_data["track_item"] = track_item
             self._add_instance_to_context(instance)
-            clip_instances[sub_creator_id] = instance.data_to_store()
-
-        # Adjust clip tag to match new publisher
-        track_item.removeTag(tag)
-        lib.imprint(
-            track_item,
-            data={
-                _CONTENT_ID: clip_instances,
-                "clip_index": track_item.guid(),
-            }
-        )
 
     def collect_instances(self):
         """Collect all created instances from current timeline."""
