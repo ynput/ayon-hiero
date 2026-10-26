@@ -1,6 +1,10 @@
 import pyblish.api
+
 from ayon_core.pipeline import PublishError
 from ayon_hiero.api import lib
+
+import hiero
+
 
 class CollectEditorialPackages(pyblish.api.InstancePlugin):
     """Collect all Editorial Packages."""
@@ -27,5 +31,36 @@ class CollectEditorialPackages(pyblish.api.InstancePlugin):
 
         if not hiero_sequence:
             raise PublishError(f"Cannot retrieve sequence from {hiero_sequence}.")
+
+        # Collect colorspace from the sequence clips
+        colorspaces = set()
+        for track in sequence.videoTracks():
+            if not track.isEnabled():
+                continue
+
+            for track_item in track.items():
+                if (
+                    not isinstance(track_item, hiero.core.TrackItem)
+                    or not track_item.isEnabled()
+                ):
+                    continue
+
+                colorspaces.add(track_item.sourceMediaColourTransform())
+
+        if len(colorspaces) == 1:
+            colorspace = colorspaces.pop()
+            instance.data["colorspace"] = colorspace
+            version_data = instance.data.setdefault("versionData", {})
+            version_data["colorSpace"] = colorspace
+            self.log.debug(
+                "Collected colorspace from sequence: %s",
+                colorspace,
+            )
+
+        elif colorspaces:
+            self.log.warning(
+                "Incoming sequence clips have mixed colorspaces %r.",
+                colorspaces,
+            )
 
         self.log.debug(f"Editorial Package: {instance.data}")

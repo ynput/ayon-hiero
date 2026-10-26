@@ -14,7 +14,10 @@ from ayon_hiero.api import rendering
 from ayon_hiero.api.otio import hiero_export
 
 
-class ExtractEditorialPackage(publish.Extractor):
+class ExtractEditorialPackage(
+    publish.Extractor,
+    publish.ColormanagedPyblishPluginMixin,
+):
     """Extract and Render intermediate file for Editorial Package"""
 
     label = "Extract Editorial Package"
@@ -102,9 +105,12 @@ class ExtractEditorialPackage(publish.Extractor):
             temp_dir,
             f"{seq.guid()}_intermediate.mov"
         )
+        # Colorspace inherited from timeline clips (if any).
+        colorspace = instance.data.get("colorspace")
         rendering.render_sequence_as_quicktime(
             output_video,
-            sequence=seq
+            sequence=seq,
+            colorspace=colorspace,
         )
         intermediate_repre = {
             "name": "intermediate",
@@ -116,6 +122,12 @@ class ExtractEditorialPackage(publish.Extractor):
             "fps": fps,
             "tags": ["review"]
         }
+        # Fallback to file rules when no colorspace is set.
+        self.set_representation_colorspace(
+            intermediate_repre,
+            instance.context,
+            colorspace=colorspace,
+        )
         instance.data["representations"].append(intermediate_repre)
         published_path = self._get_anticipated_publish_path(
             instance,
