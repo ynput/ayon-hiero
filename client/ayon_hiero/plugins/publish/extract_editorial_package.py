@@ -9,8 +9,9 @@ import pyblish.api
 import opentimelineio as otio
 
 from ayon_core.pipeline import publish
+from ayon_core.pipeline.colorspace import get_ocio_config_colorspaces
 
-from ayon_hiero.api import rendering
+from ayon_hiero.api import lib, rendering
 from ayon_hiero.api.otio import hiero_export
 
 
@@ -23,6 +24,30 @@ class ExtractEditorialPackage(
     label = "Extract Editorial Package"
     order = pyblish.api.ExtractorOrder
     families = ["editorial_pkg"]
+
+    def _resolve_colorspace_role(
+            self,
+            colorspace: str | None,
+            context: pyblish.api.Context,
+        ) -> str | None:
+        """Resolve OCIO role to its colorspace name.
+        """
+        if not colorspace:
+            return colorspace
+
+        config_data, _ = self.get_colorspace_settings(context)
+        if not config_data:
+            return colorspace
+
+        roles = get_ocio_config_colorspaces(
+            config_data["path"]).get("roles", {})
+        if colorspace in roles:
+            resolved = roles[colorspace]["colorspace"]
+            self.log.debug(
+                f"Resolved colorspace role '{colorspace}' to '{resolved}'.")
+            return resolved
+
+        return colorspace
 
     @staticmethod
     def _get_anticipated_publish_path(
@@ -105,12 +130,17 @@ class ExtractEditorialPackage(
             temp_dir,
             f"{seq.guid()}_intermediate.mov"
         )
-        # Colorspace inherited from timeline clips (if any).
-        colorspace = instance.data.get("colorspace")
+        # Render with the Hiero project 8-bit files colorspace explicitly
+        # so the representation colorspace matches the rendered pixels.
+        lut8bit_colorspace = lib.get_current_project().lutSetting8Bit()
+        colorspace = self._resolve_colorspace_role(
+            lut8bit_colorspace,
+            instance.context,
+        )
         rendering.render_sequence_as_quicktime(
             output_video,
             sequence=seq,
-            colorspace=colorspace,
+            colorspace=lut8bit_colorspace,
         )
         intermediate_repre = {
             "name": "intermediate",
@@ -122,12 +152,16 @@ class ExtractEditorialPackage(
             "fps": fps,
             "tags": ["review"]
         }
-        # Fallback to file rules when no colorspace is set.
         self.set_representation_colorspace(
             intermediate_repre,
             instance.context,
             colorspace=colorspace,
         )
+        colorspace_data = intermediate_repre.get("colorspaceData")
+        if colorspace_data:
+            version_data = instance.data.setdefault("versionData", {})
+            version_data["colorSpace"] = colorspace_data["colorspace"]
+
         instance.data["representations"].append(intermediate_repre)
         published_path = self._get_anticipated_publish_path(
             instance,
