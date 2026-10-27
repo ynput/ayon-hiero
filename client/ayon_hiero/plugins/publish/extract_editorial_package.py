@@ -41,8 +41,11 @@ class ExtractEditorialPackage(
 
         roles = get_ocio_config_colorspaces(
             config_data["path"]).get("roles", {})
-        if colorspace in roles:
-            resolved = roles[colorspace]["colorspace"]
+        role = colorspace
+        if role not in roles and role.startswith("role_"):
+            role = role[len("role_"):]
+        if role in roles:
+            resolved = roles[role]["colorspace"]
             self.log.debug(
                 f"Resolved colorspace role '{colorspace}' to '{resolved}'.")
             return resolved
