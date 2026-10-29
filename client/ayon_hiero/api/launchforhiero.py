@@ -1,26 +1,20 @@
 import logging
 
+import hiero.ui
 from scriptsmenu import scriptsmenu
-from qtpy import QtWidgets
 
 
 log = logging.getLogger(__name__)
 
 
-def _hiero_main_window():
-    """Return Hiero's main window"""
-    for obj in QtWidgets.QApplication.topLevelWidgets():
-        if (obj.inherits('QMainWindow') and
-                obj.metaObject().className() == 'Foundry::UI::DockMainWindow'):
-            return obj
-    raise RuntimeError('Could not find HieroWindow instance')
-
-
 def _hiero_main_menubar():
-    """Retrieve the main menubar of the Hiero window"""
-    hiero_window = _hiero_main_window()
+    """Retrieve the main menubar of Hiero
 
-    return hiero_window.menuBar()
+    On macOS (Hiero 17) the main window's `menuBar()` is not the menubar that
+    `hiero.ui.menuBar()` returns and the AYON menu lives in, so a menu added
+    to the first ended up next to the AYON menu in the native menubar.
+    """
+    return hiero.ui.menuBar()
 
 
 def find_scripts_menu(title, parent):
