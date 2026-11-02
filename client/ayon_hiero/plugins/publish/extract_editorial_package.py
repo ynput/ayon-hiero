@@ -10,11 +10,14 @@ import opentimelineio as otio
 
 from ayon_core.pipeline import publish
 
-from ayon_hiero.api import rendering
+from ayon_hiero.api import lib, rendering
 from ayon_hiero.api.otio import hiero_export
 
 
-class ExtractEditorialPackage(publish.Extractor):
+class ExtractEditorialPackage(
+    publish.Extractor,
+    publish.ColormanagedPyblishPluginMixin,
+):
     """Extract and Render intermediate file for Editorial Package"""
 
     label = "Extract Editorial Package"
@@ -102,9 +105,14 @@ class ExtractEditorialPackage(publish.Extractor):
             temp_dir,
             f"{seq.guid()}_intermediate.mov"
         )
+        # Render with the Hiero project 8-bit files colorspace explicitly
+        # so the representation colorspace matches the rendered pixels.
+        # Hiero and AYON OCIO configs are expected to match.
+        lut8bit_colorspace = lib.get_current_project().lutSetting8Bit()
         rendering.render_sequence_as_quicktime(
             output_video,
-            sequence=seq
+            sequence=seq,
+            colorspace=lut8bit_colorspace,
         )
         intermediate_repre = {
             "name": "intermediate",
@@ -116,6 +124,16 @@ class ExtractEditorialPackage(publish.Extractor):
             "fps": fps,
             "tags": ["review"]
         }
+        self.set_representation_colorspace(
+            intermediate_repre,
+            instance.context,
+            colorspace=lut8bit_colorspace,
+        )
+        colorspace_data = intermediate_repre.get("colorspaceData")
+        if colorspace_data:
+            version_data = instance.data.setdefault("versionData", {})
+            version_data["colorSpace"] = colorspace_data["colorspace"]
+
         instance.data["representations"].append(intermediate_repre)
         published_path = self._get_anticipated_publish_path(
             instance,

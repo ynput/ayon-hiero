@@ -9,6 +9,7 @@ def render_sequence_as_quicktime(
         output_path: str,
         sequence: Optional[hiero.core.Sequence] = None,
         export_audio: Optional[bool] = True,
+        colorspace: Optional[str] = None,
     ):
     project = lib.get_current_project()
     if not sequence:
@@ -44,7 +45,7 @@ def render_sequence_as_quicktime(
       "Write Timecode" : "True",
       "YCbCr Matrix" : "Auto",
       "center" : "True",
-      "colorspace" : "default",
+      "colorspace" : colorspace or "default",
       "ocioDisplay" : "default",
       "ocioView" : "sRGB",
       "resize" : "width",
