@@ -1,14 +1,39 @@
-""" compatibility OpenTimelineIO 0.12.0 and newer
+"""Hiero sequence to OTIO timeline.
+
+The host only reads Hiero objects (track items, media sources, tags, soft
+effects) and turns them into specs. `ayon_editorial.otio` builds the OTIO
+objects: timeline, tracks, gaps, clips, references, markers and retime
+effects.
 """
 
-from typing import Optional
+from typing import List, Optional
 import os
 import re
-import opentimelineio as otio
-from . import utils
+
 import hiero.core
 import hiero.ui
+import opentimelineio as otio
+from ayon_editorial.otio import effects
+from ayon_editorial.otio.builder import (
+    GAP_RECORD,
+    ClipSpec,
+    MarkerSpec,
+    MediaSpec,
+    SequenceSpec,
+    SpeedEffectSpec,
+    TimelineBuilder,
+    TimeWarpEffectSpec,
+    write_to_file,  # noqa: F401 (public, used by the exporter task)
+)
+from ayon_editorial.otio.time import create_time_range
 
+from . import utils
+
+# Kept for the exporter UI/task, which set it; the export always adds tags.
+include_tags = True
+
+# Public name used by the old publish workflow
+create_otio_time_range = create_time_range
 
 TRACK_TYPE_MAP = {
     hiero.core.VideoTrack: otio.schema.TrackKind.Video,
@@ -24,12 +49,6 @@ MARKER_COLOR_MAP = {
 }
 
 
-class CTX:
-    project_fps = None
-    timeline = None
-    include_tags = True
-
-
 def flatten(list_):
     for item_ in list_:
         if isinstance(item_, (list, tuple)):
@@ -39,53 +58,77 @@ def flatten(list_):
             yield item_
 
 
-def create_otio_rational_time(frame, fps):
-    return otio.opentime.RationalTime(
-        float(frame),
-        float(fps)
-    )
-
-
-def create_otio_time_range(start_frame, frame_duration, fps):
-    return otio.opentime.TimeRange(
-        start_time=create_otio_rational_time(start_frame, fps),
-        duration=create_otio_rational_time(frame_duration, fps)
-    )
-
-
 def _get_metadata(item):
-    if hasattr(item, 'metadata'):
+    if hasattr(item, "metadata"):
         return {key: value for key, value in dict(item.metadata()).items()}
     return {}
 
 
-def create_time_effects(otio_clip, track_item):
-    # get all subtrack items
-    subTrackItems = flatten(track_item.parent().subTrackItems())
-    speed = track_item.playbackSpeed()
+def get_marker_color(tag):
+    icon = tag.icon()
+    res = re.search(r"icons:Tag(?P<color>\w+)\.\w+", icon)
+    if res:
+        color = res.groupdict().get("color")
+        if color.lower() in MARKER_COLOR_MAP:
+            return MARKER_COLOR_MAP[color.lower()]
 
-    otio_effect = None
-    # retime on track item
-    if speed != 1.:
-        # make effect
-        otio_effect = otio.schema.LinearTimeWarp()
-        otio_effect.name = "Speed"
-        otio_effect.time_scalar = speed
+    return otio.schema.MarkerColor.RED
 
-    # freeze frame effect
-    if speed == 0.:
-        otio_effect = otio.schema.FreezeFrame()
-        otio_effect.name = "FreezeFrame"
 
-    if otio_effect:
-        # add otio effect to clip effects
-        otio_clip.effects.append(otio_effect)
-
-    # loop through and get all Timewarps
-    for effect in subTrackItems:
-        if ((track_item not in effect.linkedItems())
-                and (len(effect.linkedItems()) > 0)):
+def get_marker_specs(item, project_fps) -> List[MarkerSpec]:
+    """Read the visible tags of a track, track item or clip."""
+    specs = []
+    for tag in item.tags():
+        if not tag.visible():
             continue
+
+        if tag.name() == "Copy":
+            # Hiero adds this tag to a lot of clips
+            continue
+
+        tag_data = tag.metadata().dict()
+        # tag metadata without the "tag." prefix
+        metadata = {
+            key.replace("tag.", ""): value
+            for key, value in tag_data.items()
+        }
+        # Store the source item for future import assignment
+        metadata["hiero_source_type"] = item.__class__.__name__
+
+        specs.append(MarkerSpec(
+            name=tag.name(),
+            start=tag.inTime(),
+            duration=int(tag_data.get("tag.length", "0")),
+            color=get_marker_color(tag),
+            metadata=metadata,
+            rate=utils.get_rate(item) or project_fps,
+        ))
+    return specs
+
+
+def _knob_value(knob, track_item):
+    """Knob value, or the per frame offset of an animated one."""
+    if not knob.isAnimated():
+        return knob.value()
+    first = track_item.timelineIn()
+    return effects.lookup_from_frames(
+        [
+            knob.getValueAt(frame)
+            for frame in range(first, track_item.timelineOut() + 1)
+        ],
+        first,
+    )
+
+
+def get_effect_specs(track_item) -> list:
+    """Read the speed of a track item and its TimeWarp soft effects."""
+    specs = [SpeedEffectSpec(track_item.playbackSpeed())]
+
+    for effect in flatten(track_item.parent().subTrackItems()):
+        linked_items = effect.linkedItems()
+        if track_item not in linked_items and len(linked_items) > 0:
+            continue
+
         # avoid all effect which are not TimeWarp and disabled
         if "TimeWarp" not in effect.name():
             continue
@@ -94,62 +137,37 @@ def create_time_effects(otio_clip, track_item):
             continue
 
         node = effect.node()
-        name = node["name"].value()
-
-        # solve effect class as effect name
-        _name = effect.name()
-        if "_" in _name:
-            effect_name = re.sub(r"(?:_)[_0-9]+", "", _name)  # more numbers
-        else:
-            effect_name = re.sub(r"\d+", "", _name)  # one number
-
-        metadata = {}
-        # add knob to metadata
-        for knob in ["lookup", "length"]:
-            value = node[knob].value()
-            animated = node[knob].isAnimated()
-            if animated:
-                value = [
-                    ((node[knob].getValueAt(i)) - i)
-                    for i in range(
-                        track_item.timelineIn(), track_item.timelineOut() + 1)
-                ]
-
-            metadata[knob] = value
-
-        # make effect
-        otio_effect = otio.schema.TimeEffect()
-        otio_effect.name = name
-        otio_effect.effect_name = effect_name
-        otio_effect.metadata.update(metadata)
-
-        # add otio effect to clip effects
-        otio_clip.effects.append(otio_effect)
+        specs.append(TimeWarpEffectSpec(
+            lookup=_knob_value(node["lookup"], track_item),
+            name=node["name"].value(),
+            effect_name=effects.timewarp_effect_name(effect.name()),
+            metadata={"length": _knob_value(node["length"], track_item)},
+        ))
+    return specs
 
 
-def create_otio_reference(clip):
-    metadata = _get_metadata(clip)
+def get_media_spec(clip, project_fps) -> MediaSpec:
     media_source = clip.mediaSource()
 
     # get file info for path and start frame
     file_info = media_source.fileinfos().pop()
-    start_frame = file_info.startFrame()
-    timecode_start = media_source.timecodeStart()
     path = file_info.filename()
+    fps = utils.get_rate(clip) or project_fps
 
-    # get padding and other file infos
-    padding = media_source.filenamePadding()
-    file_head = media_source.filenameHead()
-    is_sequence = not media_source.singleFile()
-    frame_duration = media_source.duration()
-    fps = utils.get_rate(clip) or CTX.project_fps
-    extension = os.path.splitext(path)[-1]
+    metadata = _get_metadata(media_source)
+    metadata.update(_get_metadata(clip))
 
-    if is_sequence:
-        metadata.update({
-            "isSequence": True,
-            "padding": padding
-        })
+    sequence = None
+    if not media_source.singleFile():
+        padding = media_source.filenamePadding()
+        metadata.update({"isSequence": True, "padding": padding})
+        sequence = SequenceSpec(
+            target_url_base=os.path.dirname(path) + os.sep,
+            name_prefix=media_source.filenameHead(),
+            name_suffix=os.path.splitext(path)[-1],
+            start_frame=file_info.startFrame(),
+            padding=padding,
+        )
 
     # add resolution metadata
     metadata.update({
@@ -159,165 +177,48 @@ def create_otio_reference(clip):
         "ayon.source.pixelAspect": float(media_source.pixelAspect())
     })
 
-    otio_ex_ref_item = None
-
-    if is_sequence:
-        # if it is file sequence try to create `ImageSequenceReference`
-        # the OTIO might not be compatible so return nothing and do it old way
-        try:
-            dirname = os.path.dirname(path)
-            otio_ex_ref_item = otio.schema.ImageSequenceReference(
-                target_url_base=dirname + os.sep,
-                name_prefix=file_head,
-                name_suffix=extension,
-                start_frame=start_frame,
-                frame_zero_padding=padding,
-                rate=fps,
-                available_range=create_otio_time_range(
-                    timecode_start,
-                    frame_duration,
-                    fps
-                )
-            )
-        except AttributeError:
-            pass
-
-    if not otio_ex_ref_item:
-        reformat_path = utils.get_reformated_path(path, padded=False)
-        # in case old OTIO or video file create `ExternalReference`
-        otio_ex_ref_item = otio.schema.ExternalReference(
-            target_url=reformat_path,
-            available_range=create_otio_time_range(
-                timecode_start,
-                frame_duration,
-                fps
-            )
-        )
-
-    # add metadata to otio item
-    add_otio_metadata(otio_ex_ref_item, media_source, **metadata)
-
-    return otio_ex_ref_item
+    return MediaSpec(
+        target_url=utils.get_reformated_path(path, padded=False),
+        available_start=media_source.timecodeStart(),
+        available_duration=media_source.duration(),
+        rate=fps,
+        metadata=metadata,
+        sequence=sequence,
+    )
 
 
-def get_marker_color(tag):
-    icon = tag.icon()
-    pat = r'icons:Tag(?P<color>\w+)\.\w+'
-
-    res = re.search(pat, icon)
-    if res:
-        color = res.groupdict().get('color')
-        if color.lower() in MARKER_COLOR_MAP:
-            return MARKER_COLOR_MAP[color.lower()]
-
-    return otio.schema.MarkerColor.RED
-
-
-def create_otio_markers(otio_item, item):
-    for tag in item.tags():
-        if not tag.visible():
-            continue
-
-        if tag.name() == 'Copy':
-            # Hiero adds this tag to a lot of clips
-            continue
-
-        frame_rate = utils.get_rate(item) or CTX.project_fps
-
-        marked_range = otio.opentime.TimeRange(
-            start_time=otio.opentime.RationalTime(
-                tag.inTime(),
-                frame_rate
-            ),
-            duration=otio.opentime.RationalTime(
-                int(tag.metadata().dict().get('tag.length', '0')),
-                frame_rate
-            )
-        )
-        # add tag metadata but remove "tag." string
-        metadata = {}
-
-        for key, value in tag.metadata().dict().items():
-            _key = key.replace("tag.", "")
-
-            metadata.update({_key: value})
-
-        # Store the source item for future import assignment
-        metadata['hiero_source_type'] = item.__class__.__name__
-
-        marker = otio.schema.Marker(
-            name=tag.name(),
-            color=get_marker_color(tag),
-            marked_range=marked_range,
-            metadata=metadata
-        )
-
-        otio_item.markers.append(marker)
-
-
-def create_otio_clip(track_item):
+def get_clip_spec(track_item, project_fps) -> ClipSpec:
     clip = track_item.source()
     speed = track_item.playbackSpeed()
     # flip if speed is in minus
     source_in = track_item.sourceIn() if speed > 0 else track_item.sourceOut()
 
-    duration = int(track_item.duration())
+    markers = get_marker_specs(track_item, project_fps)
+    markers += get_marker_specs(clip, project_fps)
 
-    fps = utils.get_rate(track_item) or CTX.project_fps
-    name = track_item.name()
-
-    media_reference = create_otio_reference(clip)
-    available_start = media_reference.available_range.start_time
-    source_in_offset = otio.opentime.RationalTime(
-        source_in,
-        available_start.rate
-    )
-    src_in = available_start + source_in_offset
-    conformed_src_in = src_in.rescaled_to(fps)
-
-    source_range = create_otio_time_range(
-        conformed_src_in.value,  # no rounding to preserve accuracy
-        duration,
-        fps
-    )
-
-    otio_clip = otio.schema.Clip(
-        name=name,
-        source_range=source_range,
-        media_reference=media_reference
-    )
-
-    # Add tags as markers
-    if CTX.include_tags:
-        create_otio_markers(otio_clip, track_item)
-        create_otio_markers(otio_clip, track_item.source())
-
-    # only if video
-    if not clip.mediaSource().hasAudio():
-        # Add effects to clips
-        create_time_effects(otio_clip, track_item)
-
-    return otio_clip
-
-
-def create_otio_gap(gap_start, clip_start, tl_start_frame, fps):
-    return otio.schema.Gap(
-        source_range=create_otio_time_range(
-            gap_start,
-            (clip_start - tl_start_frame) - gap_start,
-            fps
-        )
+    # time effects only if video
+    has_audio = clip.mediaSource().hasAudio()
+    return ClipSpec(
+        name=track_item.name(),
+        source_offset=source_in,
+        duration=int(track_item.duration()),
+        media=get_media_spec(clip, project_fps),
+        rate=utils.get_rate(track_item) or project_fps,
+        record_in=track_item.timelineIn(),
+        record_out=track_item.timelineOut(),
+        markers=markers,
+        effects=[] if has_audio else get_effect_specs(track_item),
     )
 
 
-def _create_otio_timeline():
-    project = CTX.timeline.project()
-    metadata = _get_metadata(CTX.timeline)
-
+def _get_timeline_metadata(sequence) -> dict:
+    project = sequence.project()
+    sequence_format = sequence.format()
+    metadata = _get_metadata(sequence)
     metadata.update({
-        "ayon.timeline.width": int(CTX.timeline.format().width()),
-        "ayon.timeline.height": int(CTX.timeline.format().height()),
-        "ayon.timeline.pixelAspect": int(CTX.timeline.format().pixelAspect()),  # noqa
+        "ayon.timeline.width": int(sequence_format.width()),
+        "ayon.timeline.height": int(sequence_format.height()),
+        "ayon.timeline.pixelAspect": int(sequence_format.pixelAspect()),
         "ayon.project.useOCIOEnvironmentOverride": project.useOCIOEnvironmentOverride(),  # noqa
         "ayon.project.lutSetting16Bit": project.lutSetting16Bit(),
         "ayon.project.lutSetting8Bit": project.lutSetting8Bit(),
@@ -329,109 +230,35 @@ def _create_otio_timeline():
         "ayon.project.ocioConfigName": project.ocioConfigName(),
         "ayon.project.ocioConfigPath": project.ocioConfigPath()
     })
-
-    start_time = create_otio_rational_time(
-        CTX.timeline.timecodeStart(), CTX.project_fps)
-
-    return otio.schema.Timeline(
-        name=CTX.timeline.name(),
-        global_start_time=start_time,
-        metadata=metadata
-    )
-
-
-def create_otio_track(track_type, track_name):
-    return otio.schema.Track(
-        name=track_name,
-        kind=TRACK_TYPE_MAP[track_type]
-    )
-
-
-def add_otio_gap(track_item, otio_track, prev_out):
-    gap_length = track_item.timelineIn() - prev_out
-    if prev_out != 0:
-        gap_length -= 1
-
-    gap = otio.opentime.TimeRange(
-        duration=otio.opentime.RationalTime(
-            gap_length,
-            CTX.project_fps
-        )
-    )
-    otio_gap = otio.schema.Gap(source_range=gap)
-    otio_track.append(otio_gap)
-
-
-def add_otio_metadata(otio_item, media_source, **kwargs):
-    metadata = _get_metadata(media_source)
-
-    # add additional metadata from kwargs
-    if kwargs:
-        metadata.update(kwargs)
-
-    # add metadata to otio item metadata
-    for key, value in metadata.items():
-        otio_item.metadata.update({key: value})
+    return metadata
 
 
 def create_otio_timeline(
     sequence: Optional[hiero.core.Sequence] = None,
 ) -> otio.schema.Timeline:
+    sequence = sequence or hiero.ui.activeSequence()
+    project_fps = sequence.framerate().toFloat()
 
-    # get current timeline
-    CTX.timeline = sequence or hiero.ui.activeSequence()
-    CTX.project_fps = CTX.timeline.framerate().toFloat()
+    builder = TimelineBuilder(
+        sequence.name(),
+        project_fps,
+        sequence.timecodeStart(),
+        _get_timeline_metadata(sequence),
+        gap_mode=GAP_RECORD,
+        sequence_fallback_padded=False,
+    )
 
-    # convert timeline to otio
-    otio_timeline = _create_otio_timeline()
-
-    # loop all defined track types
-    for track in CTX.timeline.items():
+    for track in sequence.items():
         # skip if track is disabled
         if not track.isEnabled():
             continue
 
-        # convert track to otio
-        otio_track = create_otio_track(
-            type(track), track.name())
+        track_builder = builder.add_track(
+            track.name(),
+            TRACK_TYPE_MAP[type(track)],
+            get_marker_specs(track, project_fps),
+        )
+        for track_item in track:
+            track_builder.append_clip(get_clip_spec(track_item, project_fps))
 
-        for itemindex, track_item in enumerate(track):
-            # Add Gap if needed
-            if itemindex == 0:
-                # if it is first track item at track then add
-                # it to previous item
-                prev_item = track_item
-
-            else:
-                # get previous item
-                prev_item = track_item.parent().items()[itemindex - 1]
-
-            # calculate clip frame range difference from each other
-            clip_diff = track_item.timelineIn() - prev_item.timelineOut()
-
-            # add gap if first track item is not starting
-            # at first timeline frame
-            if itemindex == 0 and track_item.timelineIn() > 0:
-                add_otio_gap(track_item, otio_track, 0)
-
-            # or add gap if following track items are having
-            # frame range differences from each other
-            elif itemindex and clip_diff != 1:
-                add_otio_gap(track_item, otio_track, prev_item.timelineOut())
-
-            # create otio clip and add it to track
-            otio_clip = create_otio_clip(track_item)
-            otio_track.append(otio_clip)
-
-        # Add tags as markers
-        if CTX.include_tags:
-            create_otio_markers(otio_track, track)
-
-        # add track to otio timeline
-        otio_timeline.tracks.append(otio_track)
-
-    return otio_timeline
-
-
-def write_to_file(otio_timeline, path):
-    otio.adapters.write_to_file(otio_timeline, path)
+    return builder.build()

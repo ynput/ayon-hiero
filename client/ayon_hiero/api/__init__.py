@@ -53,7 +53,7 @@ from .lib import (
 from .plugin import (
     CreatorWidget,
     Creator,
-    PublishClip,
+    clip_info_from_track_item,
     SequenceLoader,
     ClipLoader
 )
@@ -110,7 +110,7 @@ __all__ = [
     # plugins
     "CreatorWidget",
     "Creator",
-    "PublishClip",
+    "clip_info_from_track_item",
     "SequenceLoader",
     "ClipLoader"
 ]
