@@ -14,6 +14,7 @@ from ayon_core.pipeline import (
 from ayon_core.pipeline.load import get_representation_path_from_context
 
 from ayon_editorial.shots.clip import ClipInfo
+from ayon_editorial.shots.hierarchy import sanitize_name
 
 from . import lib
 
@@ -656,16 +657,18 @@ def clip_info_from_track_item(track_item, sequence) -> ClipInfo:
         sequence (hiero.core.Sequence): The sequence the clip is on.
 
     Returns:
-        ClipInfo: Clip data, with the raw track name (the solver cleans it).
+        ClipInfo: Clip data. Clip and sequence names are sanitised with
+            Hiero's rule (`[ -.,]` to `_`), the track name is raw (the
+            solver cleans it).
     """
     track = track_item.parent()
     return ClipInfo(
         uid=track_item.guid(),
-        name=track_item.name(),
+        name=sanitize_name(track_item.name()),
         index=int(track_item.eventNumber()),
         track_name=track.name(),
         track_index=int(track.trackIndex()),
-        sequence_name=sequence.name(),
+        sequence_name=sanitize_name(sequence.name()),
         timeline_in=int(track_item.timelineIn()),
         timeline_out=int(track_item.timelineOut()),
         source_in=track_item.sourceIn(),

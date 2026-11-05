@@ -16,7 +16,10 @@ from ayon_editorial.create.mixins import (
     ClipInstanceCreatorMixin,
     ShotInstanceCreatorMixin,
 )
-from ayon_editorial.shots.hierarchy import ShotHierarchySolver
+from ayon_editorial.shots.hierarchy import (
+    ShotHierarchySolver,
+    sanitize_name,
+)
 from ayon_editorial.shots.instances import link_parent_instance
 from ayon_editorial.shots.options import (
     CLIP_CREATOR_ATTRIBUTES,
@@ -270,7 +273,7 @@ OTIO file.
         instance_data["task"] = None
         solver = ShotHierarchySolver(
             pre_create_data,
-            self.sequence.name(),
+            sanitize_name(self.sequence.name()),
             self.get_video_track_names(),
             VerticalSync(),
         )
@@ -295,7 +298,10 @@ OTIO file.
         all_shot_instances = {}
         for idx, track_item in enumerate(selected):
             clip = clip_info_from_track_item(track_item, self.sequence)
-            solution = solver.solve(clip, idx)
+            try:
+                solution = solver.solve(clip, idx)
+            except ValueError as exc:
+                raise CreatorError(str(exc)) from exc
             if solution is None:
                 # clip of a reviewable source track, not the driving layer
                 continue
