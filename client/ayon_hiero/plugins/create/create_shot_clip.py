@@ -1,16 +1,28 @@
-import collections
-import copy
 import json
 
-from ayon_hiero.api import constants, plugin, lib, tags
+from ayon_hiero.api import (
+    constants, plugin, lib, tags, clip_info_from_track_item
+)
 
-from ayon_core.lib import BoolDef, EnumDef, TextDef, UILabelDef, NumberDef
 from ayon_core.pipeline import AVALON_CONTAINER_ID, AYON_CONTAINER_ID
 from ayon_core.pipeline.create import (
     CreatorError,
     CreatedInstance,
     ParentFlags,
 )
+
+from ayon_editorial.create.mixins import (
+    ClipCreatorMixin,
+    ClipInstanceCreatorMixin,
+    ShotInstanceCreatorMixin,
+)
+from ayon_editorial.shots.hierarchy import ShotHierarchySolver
+from ayon_editorial.shots.instances import link_parent_instance
+from ayon_editorial.shots.options import (
+    CLIP_CREATOR_ATTRIBUTES,
+    attribute_default,
+)
+from ayon_editorial.shots.vertical_sync import VerticalSync
 
 import hiero
 
@@ -20,78 +32,11 @@ import hiero
 _CONTENT_ID = "hiero_sub_products"
 
 
-# Shot attributes
-CLIP_ATTR_DEFS = [
-    EnumDef(
-        "fps",
-        items=[
-            {"value": "from_selection", "label": "From selection"},
-            {"value": 23.976, "label": "23.976"},
-            {"value": 24, "label": "24"},
-            {"value": 25, "label": "25"},
-            {"value": 29.97, "label": "29.97"},
-            {"value": 30, "label": "30"}
-        ],
-        label="FPS"
-    ),
-    NumberDef(
-        "workfileFrameStart",
-        default=1001,
-        label="Workfile start frame"
-    ),
-    NumberDef(
-        "handleStart",
-        default=0,
-        label="Handle start"
-    ),
-    NumberDef(
-        "handleEnd",
-        default=0,
-        label="Handle end"
-    ),
-    NumberDef(
-        "frameStart",
-        default=0,
-        label="Frame start",
-        disabled=True,
-    ),
-    NumberDef(
-        "frameEnd",
-        default=0,
-        label="Frame end",
-        disabled=True,
-    ),
-    NumberDef(
-        "clipIn",
-        default=0,
-        label="Clip in",
-        disabled=True,
-    ),
-    NumberDef(
-        "clipOut",
-        default=0,
-        label="Clip out",
-        disabled=True,
-    ),
-    NumberDef(
-        "clipDuration",
-        default=0,
-        label="Clip duration",
-        disabled=True,
-    ),
-    NumberDef(
-        "sourceIn",
-        default=0,
-        label="Media source in",
-        disabled=True,
-    ),
-    NumberDef(
-        "sourceOut",
-        default=0,
-        label="Media source out",
-        disabled=True,
-    )
-]
+def _get_video_track_names():
+    sequence = lib.get_current_sequence()
+    if sequence is None:
+        return []
+    return [track.name() for track in sequence.videoTracks()]
 
 
 class _HieroInstanceCreator(plugin.HiddenHieroCreator):
@@ -228,128 +173,27 @@ class _HieroInstanceCreator(plugin.HiddenHieroCreator):
             )
 
 
-class HieroShotInstanceCreator(_HieroInstanceCreator):
+class HieroShotInstanceCreator(
+    ShotInstanceCreatorMixin, _HieroInstanceCreator
+):
     """Shot product type creator class"""
+    host_name = "hiero"
     identifier = "io.ayon.creators.hiero.shot"
     product_base_type = "shot"
     product_type = product_base_type
     label = "Editorial Shot"
 
-    def get_instance_attr_defs(self):
-        instance_attributes = list(CLIP_ATTR_DEFS)
-        instance_attributes.append(
-            BoolDef(
-                "useSourceResolution",
-                label="Set shot resolution from plate",
-                tooltip="Is resolution taken from timeline or source?",
-                default=False,
-            )
-        )
-        return instance_attributes
 
-
-class _HieroInstanceClipCreatorBase(_HieroInstanceCreator):
+class _HieroInstanceClipCreatorBase(
+    ClipInstanceCreatorMixin, _HieroInstanceCreator
+):
     """ Base clip product creator.
     """
+    host_name = "hiero"
     skip_discovery = True
 
-    def register_callbacks(self):
-        self.create_context.add_value_changed_callback(self._on_value_change)
-
-    def _on_value_change(self, event):
-        if self.product_base_type != "plate":
-            return
-
-        for item in event["changes"]:
-            instance = item["instance"]
-            if (
-                instance is None
-                or instance.creator_identifier != self.identifier
-            ):
-                continue
-
-            changes = item["changes"].get("creator_attributes", {})
-
-            attr_defs = instance.creator_attributes.attr_defs
-
-            if "review" not in changes:
-                continue
-
-            review_value = changes["review"]
-            reviewable_source = next(
-                attr_def
-                for attr_def in attr_defs
-                if attr_def.key == "reviewableSource"
-            )
-            reviewable_source.disabled = not review_value
-
-            instance.set_create_attr_defs(attr_defs)
-
-    def get_attr_defs_for_instance(self, instance):
-        parent_instance = instance.creator_attributes.get("parent_instance")
-
-        current_sequence = lib.get_current_sequence()
-        if current_sequence is not None:
-            gui_tracks = [
-                {"value": tr.name(), "label": f"Track: {tr.name()}"}
-                for tr in current_sequence.videoTracks()
-            ]
-        else:
-            gui_tracks = []
-
-        instance_attributes = [
-            TextDef(
-                "parentInstance",
-                label="Linked to",
-                disabled=True,
-                default=parent_instance,
-            )
-        ]
-
-        if self.product_base_type in ("audio", "plate"):
-            instance_attributes.append(
-                BoolDef(
-                    "review",
-                    label="Review",
-                    tooltip="Switch to reviewable instance",
-                    default=False,
-                )
-            )
-
-        if self.product_base_type == "plate":
-            # Review track visibility
-            current_review = instance.creator_attributes.get("review", False)
-
-            instance_attributes.extend(
-                [
-                    EnumDef(
-                        "reviewableSource",
-                        label="Reviewable Source",
-                        tooltip=("Selecting source for reviewable files."),
-                        items=(
-                            [
-                                {
-                                    "value": "clip_media",
-                                    "label": "[ Clip's media ]",
-                                },
-                            ]
-                            + gui_tracks
-                        ),
-                        disabled=not current_review,
-                    ),
-                    EnumDef(
-                        "publish_effects",
-                        label="Publish clip effects",
-                        tooltip="Discover and publish clip effects",
-                        items=[
-                            {"value": "ignore_effects", "label": "Ignore Effects"},
-                            {"value": "publish_effects", "label": "Publish Effects"},
-                            {"value": "publish_only_effects", "label": "Publish Only Effects"},
-                        ],
-                    ),
-                ]
-            )
-        return instance_attributes
+    def get_video_track_names(self):
+        return _get_video_track_names()
 
 
 class EditorialPlateInstanceCreator(_HieroInstanceClipCreatorBase):
@@ -368,9 +212,10 @@ class EditorialAudioInstanceCreator(_HieroInstanceClipCreatorBase):
     label = "Editorial Audio"
 
 
-class CreateShotClip(plugin.HieroCreator):
+class CreateShotClip(ClipCreatorMixin, plugin.HieroCreator):
     """Publishable clip"""
 
+    host_name = "hiero"
     identifier = "io.ayon.creators.hiero.clip"
     label = "Create Publishable Clip"
     product_base_type = "editorial"
@@ -383,216 +228,25 @@ Publishing clips/plate, audio for new shots to project
 or updating already created from Hiero. Publishing will create
 OTIO file.
 """
-    presets = {}
+    collect_selected_instance = False
+
+    @property
+    def creator_ids(self):
+        return {
+            "shot": HieroShotInstanceCreator.identifier,
+            "plate": EditorialPlateInstanceCreator.identifier,
+            "audio": EditorialAudioInstanceCreator.identifier,
+        }
+
+    def get_video_track_names(self):
+        return _get_video_track_names()
 
     def apply_settings(self, project_settings):
-        self.presets = (
-            project_settings["hiero"]["create"][self.__class__.__name__]
+        super().apply_settings(project_settings)
+        self.collect_selected_instance = (
+            project_settings["hiero"]["create"]["CollectShotClip"]
+            ["collectSelectedInstance"]
         )
-
-    def get_pre_create_attr_defs(self):
-
-        def header_label(text):
-            return f"<br><b>{text}</b>"
-
-        tokens_help = """\nUsable tokens:
-    {_clip_}: name of used clip
-    {_track_}: name of parent track layer
-    {_sequence_}: name of parent sequence (timeline)"""
-
-        current_sequence = lib.get_current_sequence()
-        if current_sequence is not None:
-            gui_tracks = [
-                {"value": tr.name(), "label": f"Track: {tr.name()}"}
-                for tr in current_sequence.videoTracks()
-            ]
-        else:
-            gui_tracks = []
-
-        plate_product_types = self.presets["plate_product_types"]
-        if not plate_product_types:
-            plate_product_types = ["plate"]
-
-        return [
-            BoolDef(
-                "use_selection",
-                label="Use only selected clip(s).",
-                tooltip=(
-                    "When enabled it restricts create process "
-                    "to selected clips."
-                ),
-                default=True
-            ),
-
-            # renameHierarchy
-            UILabelDef(
-                label=header_label("Shot Hierarchy And Rename Settings")
-            ),
-            TextDef(
-                "hierarchy",
-                label="Shot Parent Hierarchy",
-                tooltip="Parents folder for shot root folder, "
-                        "Template filled with *Hierarchy Data* section",
-                default=self.presets["hierarchy"],
-            ),
-            BoolDef(
-                "clipRename",
-                label="Rename clips",
-                tooltip="Renaming selected clips on fly",
-                default=self.presets["clipRename"],
-            ),
-            TextDef(
-                "clipName",
-                label="Clip Name Template",
-                tooltip="template for creating shot names, used for "
-                        "renaming (use rename: on)",
-                default=self.presets["clipName"],
-            ),
-            NumberDef(
-                "countFrom",
-                label="Count sequence from",
-                tooltip="Set where the sequence number starts from",
-                default=self.presets["countFrom"],
-            ),
-            NumberDef(
-                "countSteps",
-                label="Stepping number",
-                tooltip="What number is adding every new step",
-                default=self.presets["countSteps"],
-            ),
-
-            # hierarchyData
-            UILabelDef(
-                label=header_label("Shot Template Keywords")
-            ),
-            TextDef(
-                "folder",
-                label="{folder}",
-                tooltip="Name of folder used for root of generated shots.\n"
-                        f"{tokens_help}",
-                default=self.presets["folder"],
-            ),
-            TextDef(
-                "episode",
-                label="{episode}",
-                tooltip=f"Name of episode.\n{tokens_help}",
-                default=self.presets["episode"],
-            ),
-            TextDef(
-                "sequence",
-                label="{sequence}",
-                tooltip=f"Name of sequence of shots.\n{tokens_help}",
-                default=self.presets["sequence"],
-            ),
-            TextDef(
-                "track",
-                label="{track}",
-                tooltip=f"Name of timeline track.\n{tokens_help}",
-                default=self.presets["track"],
-            ),
-            TextDef(
-                "shot",
-                label="{shot}",
-                tooltip="Name of shot. '#' is converted to padded number."
-                        f"\n{tokens_help}",
-                default=self.presets["shot"],
-            ),
-
-            # verticalSync
-            UILabelDef(
-                label=header_label("Vertical Synchronization Of Attributes")
-            ),
-            BoolDef(
-                "vSyncOn",
-                label="Enable Vertical Sync",
-                tooltip="Switch on if you want clips above "
-                        "each other to share its attributes",
-                default=self.presets["vSyncOn"],
-            ),
-            EnumDef(
-                "vSyncTrack",
-                label="Hero track",
-                tooltip="Select driving track name which should "
-                        "be mastering all others",
-                items=(
-                    gui_tracks or [
-                        {"value": None, "label": "< nothing to select> "}
-                    ]
-                ),
-            ),
-            # publishSettings
-            UILabelDef(
-                label=header_label("Publish Settings")
-            ),
-            EnumDef(
-                "clipVariant",
-                label="Product Variant",
-                tooltip="Chose variant which will be then used for "
-                        "product name, if <track_name> "
-                        "is selected, name of track layer will be used",
-                items=['<track_name>', 'main', 'bg', 'fg', 'animatic'],
-            ),
-            EnumDef(
-                "plate_product_type",
-                label="Plate Product Type",
-                tooltip="How the product will be used",
-                items=plate_product_types,
-            ),
-            EnumDef(
-                "reviewableSource",
-                label="Reviewable Source",
-                tooltip="Generate preview videos on fly, if "
-                "'< none >' is defined nothing will be generated.",
-                items=[
-                    {"value": None, "label": "< none >"},
-                    {"value": "clip_media", "label": "[ Clip's media ]"},
-                    {
-                        "value": "review_track_regex_pattern",
-                        "label": "[ Review track regex pattern ]",
-                    },
-                ] + gui_tracks,
-            ),
-            TextDef(
-                "reviewTrackRegexPattern",
-                label="Review track regex pattern",
-                tooltip="Attempt to match track names against this regex pattern.",
-                default="<track_name>_ref",
-            ),
-            BoolDef(
-                "export_audio",
-                label="Include audio",
-                tooltip="Process products with corresponding audio",
-                default=False,
-            ),
-            BoolDef(
-                "sourceResolution",
-                label="Source resolution",
-                tooltip="Is resolution taken from timeline or source?",
-                default=False,
-            ),
-            # shotAttr
-            UILabelDef(
-                label=header_label("Shot Attributes"),
-            ),
-            NumberDef(
-                "workfileFrameStart",
-                label="Workfiles Start Frame",
-                tooltip="Set workfile starting frame number",
-                default=self.presets["workfileFrameStart"],
-            ),
-            NumberDef(
-                "handleStart",
-                label="Handle start (head)",
-                tooltip="Handle at start of clip",
-                default=self.presets["handleStart"],
-            ),
-            NumberDef(
-                "handleEnd",
-                label="Handle end (tail)",
-                tooltip="Handle at end of clip",
-                default=self.presets["handleEnd"],
-            ),
-        ]
 
     def create(self, product_name, instance_data, pre_create_data):
         super().create(product_name, instance_data, pre_create_data)
@@ -612,194 +266,81 @@ OTIO file.
                 "timeline in order to export audio."
             )
 
+        pre_create_data = self.prepare_pre_create_data(pre_create_data)
         instance_data["task"] = None
+        solver = ShotHierarchySolver(
+            pre_create_data,
+            self.sequence.name(),
+            self.get_video_track_names(),
+            VerticalSync(),
+        )
+        ids = self.creator_ids
 
-        # sort selected trackItems by
-        sorted_selected_track_items = list()
-        unsorted_selected_track_items = list()
-        v_sync_track = pre_create_data.get("vSyncTrack", "")
-        for _ti in self.selected:
-            if _ti.parent().name() in v_sync_track:
-                sorted_selected_track_items.append(_ti)
-            else:
-                unsorted_selected_track_items.append(_ti)
-
-        sorted_selected_track_items.extend(unsorted_selected_track_items)
-
-        shot_creator_id = HieroShotInstanceCreator.identifier
-        audio_creator_id = EditorialAudioInstanceCreator.identifier
-        plate_creator_id = EditorialPlateInstanceCreator.identifier
-
-        # detect enabled creators for review, plate and audio
-        all_creators = {
-            shot_creator_id: True,
-            plate_creator_id: True,
-            audio_creator_id: True,
-        }
+        # vertical sync track first: its shot instances are the parents
+        v_sync_track = pre_create_data.get("vSyncTrack") or ""
+        selected = sorted(
+            self.selected,
+            key=lambda item: item.parent().name() not in v_sync_track,
+        )
 
         # Instances previously generated for the clips
-        prev_instances_by_clip = collections.defaultdict(list)
+        prev_instances_by_clip = {}
         for instance in self.create_context.instances:
             track_item = instance.transient_data.get("track_item")
             if track_item is not None:
-                prev_instances_by_clip[track_item.guid()].append(instance)
+                prev_instances_by_clip.setdefault(
+                    track_item.guid(), []).append(instance)
 
         instances = []
         all_shot_instances = {}
-        vertical_clip_match = {}
-        vertical_clip_used = {}
-
-        for idx, track_item in enumerate(sorted_selected_track_items):
-            _instance_data = copy.deepcopy(instance_data)
-            _instance_data["clip_index"] = track_item.guid()
-
-            # convert track item to timeline media pool item
-            publish_clip = plugin.PublishClip(
-                track_item,
-                vertical_clip_match,
-                vertical_clip_used,
-                pre_create_data=pre_create_data,
-                rename_index=idx,
-                data=_instance_data,
-            )
-
-            track_item = publish_clip.convert()
-            if track_item is None:
-                # Ignore input clips that do not convert into a track item
-                # from `PublishClip.convert`
+        for idx, track_item in enumerate(selected):
+            clip = clip_info_from_track_item(track_item, self.sequence)
+            solution = solver.solve(clip, idx)
+            if solution is None:
+                # clip of a reviewable source track, not the driving layer
                 continue
-
             self.log.info(
-                "Processing track item data: {} (index: {})".format(
-                    track_item, idx)
-            )
-            _instance_data.update(publish_clip.tag_data)
+                f"Processing track item data: {track_item} (index: {idx})")
+
+            if solution.new_clip_name:
+                track_item.setName(solution.new_clip_name)
 
             # Delete any existing instances previously generated for the clip.
-            for prev_instance in prev_instances_by_clip.pop(
-                track_item.guid(), []
-            ):
+            for prev_instance in prev_instances_by_clip.pop(clip.uid, []):
                 creator = self.create_context.creators[
                     prev_instance.creator_identifier
                 ]
                 creator.remove_instances([prev_instance])
 
-            # Create new product(s) instances.
-            shot_folder_path = _instance_data["folderPath"]
+            solution_data = {**instance_data, **solution.data}
+            sub_instances = self.make_clip_instances(
+                clip, solution_data, pre_create_data)
             shot_instances = all_shot_instances.setdefault(
-                shot_folder_path, {})
-
-            # desable shot creator if heroTrack is not enabled
-            all_creators[shot_creator_id] = _instance_data.get(
-                "heroTrack", False)
-            # desable audio creator if audio is not enabled
-            all_creators[audio_creator_id] = (
-                _instance_data.get("heroTrack", False) and
-                pre_create_data.get("export_audio", False)
-            )
+                solution.data["folderPath"], {})
 
             clip_instances = {}
-            for creator_id, enabled in all_creators.items():
-                if not enabled:
-                    continue
-                creator = self.create_context.creators[creator_id]
-                sub_instance_data = copy.deepcopy(_instance_data)
-                creator_attributes = sub_instance_data.setdefault(
-                    "creator_attributes", {})
-
-                # Shot creation
-                if creator_id == shot_creator_id:
-                    track_item_duration = track_item.duration()
-                    workfileFrameStart = \
-                        sub_instance_data["workfileFrameStart"]
-
-                    sub_instance_data.update(
-                        {
-                            "variant": "main",
-                            "productType": "shot",
-                            "productBaseType": "shot",
-                            "productName": "shotMain",
-                            "label": (
-                                f"{sub_instance_data['folderPath']} shotMain"),
-                        }
-                    )
-                    creator_attributes.update(
-                        {
-                            "workfileFrameStart": sub_instance_data[
-                                "workfileFrameStart"
-                            ],
-                            "handleStart": sub_instance_data["handleStart"],
-                            "handleEnd": sub_instance_data["handleEnd"],
-                            "frameStart": workfileFrameStart,
-                            "frameEnd": (
-                                workfileFrameStart + track_item_duration),
-                            "clipIn": track_item.timelineIn(),
-                            "clipOut": track_item.timelineOut(),
-                            "clipDuration": track_item_duration,
-                            "sourceIn": track_item.sourceIn(),
-                            "sourceOut": track_item.sourceOut(),
-                            "useSourceResolution": sub_instance_data["sourceResolution"],
-                        }
-                    )
-
-                # Plate, Audio
-                # insert parent instance data to allow
-                # metadata recollection as publish time.
-                elif creator_id == plate_creator_id:
-                    parenting_data = shot_instances[shot_creator_id]
-                    product_type = pre_create_data.get("plate_product_type")
-                    sub_instance_data.update({
-                        "productType": product_type or "plate",
-                        "productBaseType": "plate",
-                        "parent_instance_id": parenting_data["instance_id"],
-                        "label": (
-                            f"{sub_instance_data['folderPath']} "
-                            f"{sub_instance_data['productName']}"
+            for creator_id, sub_data in sub_instances.items():
+                if creator_id != ids["shot"]:
+                    if ids["shot"] not in shot_instances:
+                        raise CreatorError(
+                            f"No shot instance for '{clip.name}': select"
+                            " the hero track clip too."
                         )
-                    })
-                    creator_attributes["parentInstance"] = parenting_data[
-                        "label"]
-                    if sub_instance_data.get("reviewableSource"):
-                        creator_attributes.update({
-                            "review": True,
-                            "reviewableSource": sub_instance_data[
-                                "reviewableSource"],
-                        })
+                    link_parent_instance(sub_data, shot_instances[ids["shot"]])
 
-                elif creator_id == audio_creator_id:
-                    sub_instance_data["variant"] = "main"
-                    sub_instance_data["productBaseType"] = "audio"
-                    sub_instance_data["productType"] = "audio"
-                    sub_instance_data["productName"] = "audioMain"
-
-                    parenting_data = shot_instances[shot_creator_id]
-                    sub_instance_data.update(
-                        {
-                            "parent_instance_id": parenting_data["instance_id"],
-                            "label": (
-                                f"{sub_instance_data['folderPath']} "
-                                f"{sub_instance_data['productName']}"
-                            )
-                        }
-                    )
-                    creator_attributes["parentInstance"] = parenting_data[
-                        "label"]
-
-                    if sub_instance_data.get("reviewableSource"):
-                        creator_attributes["review"] = True
-
-                instance = creator.create(sub_instance_data)
+                creator = self.create_context.creators[creator_id]
+                instance = creator.create(sub_data)
                 instance.transient_data["track_item"] = track_item
                 self._add_instance_to_context(instance)
-                instance_data_to_store = instance.data_to_store()
-                shot_instances[creator_id] = instance_data_to_store
-                clip_instances[creator_id] = instance_data_to_store
+                stored = instance.data_to_store()
+                shot_instances[creator_id] = stored
+                clip_instances[creator_id] = stored
 
             lib.imprint(
                 track_item,
                 data={
                     _CONTENT_ID: clip_instances,
-                    "clip_index": track_item.guid(),
+                    "clip_index": clip.uid,
                 }
             )
             instances.append(instance)
@@ -861,14 +402,13 @@ OTIO file.
             "variant": track_item.parentTrack().name(),
             "extract_audio": False,
         }
-        for create_attr in self.get_pre_create_attr_defs():
-            key = create_attr.key
-            if not isinstance(key, str):
+        for spec in CLIP_CREATOR_ATTRIBUTES:
+            if spec.kind == "label":
                 continue
-
+            key = spec.key
             if key == "plate_product_type":
                 key = "productType"
-            instance_data[key] = create_attr.default
+            instance_data[key] = attribute_default(spec, self.presets)
 
         required_key_mapping = {
             "tag.audio": ("extract_audio", bool),
@@ -1022,13 +562,7 @@ OTIO file.
         else:
             all_video_tracks = []
 
-        restrict_to_selection = (
-            self.project_settings
-            ["hiero"]
-            ["create"]
-            ["CollectShotClip"]
-            ["collectSelectedInstance"]
-        )
+        restrict_to_selection = self.collect_selected_instance
 
         current_selection = [
             item for item in lib.get_timeline_selection()

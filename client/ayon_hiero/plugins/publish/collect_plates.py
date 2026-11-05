@@ -2,6 +2,8 @@ import pyblish
 
 from ayon_core.pipeline import PublishError
 from ayon_hiero.api.otio import utils
+from ayon_editorial.otio.effects import get_retime_info
+from ayon_editorial.shots.retime import RetimeOptions, handles_for_core
 
 
 class CollectPlate(pyblish.api.InstancePlugin):
@@ -83,6 +85,25 @@ class CollectPlate(pyblish.api.InstancePlugin):
                 f'Could not find shot instance for {instance.data["label"]}.'
                 " Please ensure it is set and enabled."
             )
+
+        # Without retimed handles, hand ayon-core handles it scales back
+        # to the configured ones (it scales them by the clip speed).
+        retime_options = RetimeOptions.from_data(
+            instance.data,
+            defaults=RetimeOptions(retimed_framerange=False),
+        )
+        if not retime_options.retimed_handles:
+            speed = get_retime_info(otio_clip).time_scalar
+            handle_start, handle_end = handles_for_core(
+                int(instance.data.get("handleStart", 0)),
+                int(instance.data.get("handleEnd", 0)),
+                speed,
+                retime_options.retimed_handles,
+            )
+            instance.data.update({
+                "handleStart": handle_start,
+                "handleEnd": handle_end,
+            })
 
         if track_item is not None:
             clip_colorspace = track_item.sourceMediaColourTransform()

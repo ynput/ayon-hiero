@@ -3,6 +3,11 @@ import pyblish
 from ayon_core.pipeline import PublishError
 from ayon_hiero.api import lib
 from ayon_hiero.api.otio import utils
+from ayon_editorial.shots.retime import (
+    RetimeOptions,
+    retime_instance_data,
+    workfile_frame_start,
+)
 
 import hiero
 
@@ -26,6 +31,12 @@ class CollectShot(pyblish.api.InstancePlugin):
         "pixelAspect",
         "subtracks",
         "tags",
+        # retime options of the shot, read by the plate collector
+        "workfileFrameStart",
+        "includeHandles",
+        "retimedHandles",
+        "retimedFramerange",
+        "shotDurationFromSource",
     )
 
     @classmethod
@@ -57,6 +68,22 @@ class CollectShot(pyblish.api.InstancePlugin):
                     instance.data["handleEnd"], int(track_item.handleOutLength())
                 ),
             })
+
+        # Retime options: workfile start with included handles and the
+        # keys ayon-core reads in 'CollectOTIORanges' (the retimed range
+        # is used when `shotDurationFromSource` is set).
+        # A workfile from before the options keeps Hiero's old behaviour:
+        # retimed handles, no retimed frame range.
+        retime_options = RetimeOptions.from_data(
+            creator_attributes,
+            defaults=RetimeOptions(retimed_framerange=False),
+        )
+        instance.data["workfileFrameStart"] = workfile_frame_start(
+            int(instance.data["workfileFrameStart"]),
+            int(instance.data["handleStart"]),
+            retime_options.include_handles,
+        )
+        instance.data.update(retime_instance_data(retime_options))
 
         # Inject/Distribute instance shot data as editorialSharedData
         # to make it available for clip/plate/audio products
