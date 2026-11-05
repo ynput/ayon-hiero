@@ -4,7 +4,6 @@ from .workio import (
     current_file,
     has_unsaved_changes,
     file_extensions,
-    work_root
 )
 
 from .pipeline import (
@@ -78,7 +77,6 @@ __all__ = [
     "current_file",
     "has_unsaved_changes",
     "file_extensions",
-    "work_root",
 
     # Constants
     "AYON_TAG_NAME",
