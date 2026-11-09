@@ -94,6 +94,21 @@ def _default_output_colorspace(project, preset, file_type: str) -> str:
     return getattr(project, f"lutSetting{lut_key}")()
 
 
+def get_file_extension(file_type: str) -> str:
+    """Extension of the files Hiero writes for a file type, e.g. 'jpg'.
+
+    Raises:
+        RenderError: Hiero cannot render the file type.
+    """
+    from hiero.exporters.FnTranscodeExporter import TranscodePreset
+
+    preset = TranscodePreset("ayon_extension", {"file_type": file_type})
+    try:
+        return preset.extension()
+    except KeyError:
+        raise RenderError(f"Hiero cannot render file type '{file_type}'.")
+
+
 def render_track_item(
     track_item: hiero.core.TrackItem,
     output_dir: str,
