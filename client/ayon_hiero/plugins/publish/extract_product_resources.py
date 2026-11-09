@@ -24,6 +24,12 @@ class ExtractProductResources(
     media, collected by ayon-core's `CollectOTIOProductResources`, is
     published. With a profile the original media representation is
     replaced, unless `keep_original_representation` is enabled.
+
+    The order is the one of the Flame and Resolve plugins: after the
+    collectors, before ayon-core's `ExtractOTIOTrimmingVideo`
+    (ExtractorOrder), which skips without a 'trim' tagged representation,
+    and before `ExtractReview` (ExtractorOrder + 0.02), so a rendered
+    output tagged 'review' becomes reviewable.
     """
 
     label = "Extract Product Resources"

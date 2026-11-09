@@ -170,17 +170,21 @@ def render_track_item(
     is_video = bool(codec_settings["isVideo"])
     extension = preset.extension()
 
-    preset.properties().update({
-        "includeEffects": bool(include_effects),
-        "keepNukeScript": False,
-    })
+    preset.properties().update(
+        {
+            "includeEffects": bool(include_effects),
+            "keepNukeScript": False,
+        }
+    )
     if colorspace:
-        preset.properties().update({
-            # 'colourspace' is the key of Hiero 14 and older
-            "colourspace": colorspace,
-            "colorspace": colorspace,
-            "transformType": "colorspace",
-        })
+        preset.properties().update(
+            {
+                # 'colourspace' is the key of Hiero 14 and older
+                "colourspace": colorspace,
+                "colorspace": colorspace,
+                "transformType": "colorspace",
+            }
+        )
 
     # Source frames of the cut, relative to the clip start. With a retime
     # this is not the timeline duration.
@@ -217,16 +221,19 @@ def render_track_item(
     else:
         file_template = f"{name}.####.{{ext}}"
     os.makedirs(output_dir, exist_ok=True)
-    processor_preset = ShotProcessorPreset(f"ayon_{name}", {
-        "exportRoot": output_dir,
-        "exportTemplate": ((file_template, preset),),
-        "cutLength": True,
-        "cutUseHandles": cut_handles > 0,
-        "cutHandles": cut_handles,
-        "includeRetimes": False,
-        "startFrameSource": "Custom",
-        "startFrameIndex": first_frame,
-    })
+    processor_preset = ShotProcessorPreset(
+        f"ayon_{name}",
+        {
+            "exportRoot": output_dir,
+            "exportTemplate": ((file_template, preset),),
+            "cutLength": True,
+            "cutUseHandles": cut_handles > 0,
+            "cutHandles": cut_handles,
+            "includeRetimes": False,
+            "startFrameSource": "Custom",
+            "startFrameIndex": first_frame,
+        },
+    )
 
     # The exporter tags the track item it renders; keep the timeline as it is
     tag_names_before = {tag.name() for tag in track_item.tags()}
@@ -285,9 +292,8 @@ def render_track_item(
         frame_end=cut_frame_end + result_tail,
         handle_start=result_head,
         handle_end=result_tail,
-        colorspace=colorspace or _default_output_colorspace(
-            track_item.project(), preset, file_type
-        ),
+        colorspace=colorspace
+        or _default_output_colorspace(track_item.project(), preset, file_type),
     )
 
 
