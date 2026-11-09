@@ -163,3 +163,115 @@ def frame_server():
     if not server.isServerRunning():
         pytest.skip("Frame Server did not start")
     return server
+
+
+PUBLISH_PLUGINS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "client",
+    "ayon_hiero",
+    "plugins",
+    "publish",
+)
+
+
+def load_publish_plugin(filename, class_name, **attributes):
+    """Load a publish plugin class from its file, with `attributes` set.
+
+    The attributes are set on a subclass, the way settings are applied,
+    so tests do not change the plugin for each other.
+    """
+    import importlib.util
+
+    path = os.path.join(PUBLISH_PLUGINS_DIR, filename)
+    spec = importlib.util.spec_from_file_location(
+        f"_ayon_hiero_tests_{class_name}", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    plugin_class = getattr(module, class_name)
+    return type(class_name, (plugin_class,), dict(attributes))
+
+
+class StubTemplateItem:
+    def __init__(self, template):
+        self.template = template
+
+
+class StubAnatomy:
+    """Anatomy with one publish path template, enough for collectors."""
+
+    publish_template = (
+        "{root[work]}/{project[name]}/{folder[name]}/publish/"
+        "{product[name]}/v{version:0>3}/"
+        "{product[name]}_v{version:0>3}.{frame}.{ext}"
+    )
+
+    def get_template_item(self, *_args, **_kwargs):
+        return StubTemplateItem(self.publish_template)
+
+
+@pytest.fixture
+def plate_instance(tmp_path):
+    """Factory for a plate instance with the data collectors provide.
+
+    The context has the colorspace settings cached
+    (`imageioSettings`), so colorspace data is set without a server.
+    """
+    import pyblish.api
+
+    def _plate_instance(
+        track_item,
+        task_type="Edit",
+        task_name="edit",
+        handles=10,
+        **data,
+    ):
+        context = pyblish.api.Context()
+        context.data.update(
+            {
+                "projectName": "ayon_tests",
+                "hostName": "hiero",
+                "anatomy": StubAnatomy(),
+                "project_settings": {
+                    "core": {
+                        "tools": {
+                            "publish": {
+                                "template_name_profiles": [],
+                                "hero_template_name_profiles": [],
+                            }
+                        }
+                    }
+                },
+                "imageioSettings": (
+                    {
+                        "path": "/configs/config.ocio",
+                        "template": "/configs/config.ocio",
+                    },
+                    {},
+                ),
+            }
+        )
+        instance = context.create_instance("plateMain")
+        instance.data.update(
+            {
+                "productName": "plateMain",
+                "productType": "plate",
+                "productBaseType": "plate",
+                "family": "plate",
+                "families": ["plate", "clip"],
+                "trackItem": track_item,
+                "frameStart": 1001,
+                "handleStart": handles,
+                "handleEnd": handles,
+                "versionData": {},
+                "anatomyData": {
+                    "task": {"name": task_name, "type": task_type},
+                },
+                "stagingDir": str(tmp_path / "staging"),
+                "representations": [],
+            }
+        )
+        instance.data.update(data)
+        return instance
+
+    return _plate_instance
