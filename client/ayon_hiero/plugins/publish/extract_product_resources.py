@@ -64,12 +64,69 @@ class ExtractProductResources(
                 ),
             )
 
+        keep_original = bool(profile.get("keep_original_representation"))
         instance.data.setdefault("representations", [])
-        if not profile.get("keep_original_representation"):
+        if not keep_original:
             instance.data["representations"] = []
 
-        for output in outputs:
-            self._render_output(instance, output)
+        # Check the names before anything is rendered
+        names = [self._get_output_name(output) for output in outputs]
+        taken = {repre["name"] for repre in instance.data["representations"]}
+        for name in names:
+            if name in taken:
+                raise PublishError(
+                    f"Representation name '{name}' of profile "
+                    f"'{profile.get('name')}' is used twice.",
+                    description=(
+                        "Each output needs its own representation name, "
+                        "different from the original media one "
+                        f"('{name}') when it is kept. Set the "
+                        "`Representation name` of the output in the Hiero "
+                        "addon settings: `Publish plugins > Extract "
+                        "Product Resources`."
+                    ),
+                )
+            taken.add(name)
+
+        results = [
+            self._render_output(instance, output, name)
+            for output, name in zip(outputs, names)
+        ]
+        if not keep_original:
+            self._update_handles(instance, results)
+
+    @staticmethod
+    def _get_output_name(output: Dict[str, Any]) -> str:
+        """Representation name of an output, the file extension if empty."""
+        if output.get("repre_name"):
+            return output["repre_name"]
+        try:
+            return rendering.get_file_extension(output["file_type"])
+        except rendering.RenderError as exc:
+            raise PublishError(str(exc)) from exc
+
+    def _update_handles(self, instance, results):
+        """Make the version handles describe the rendered files.
+
+        ayon-core sets the version handles for the original media. When
+        the rendered outputs replace it, the handles of the first image
+        sequence (or the first output) are the ones published.
+        """
+        sequences = [result for _, result in results if result.is_sequence]
+        main = sequences[0] if sequences else results[0][1]
+        handles = (main.handle_start, main.handle_end)
+        for name, result in results:
+            if (result.handle_start, result.handle_end) != handles:
+                self.log.warning(
+                    "Output '%s' has handles %s/%s, the version has %s/%s.",
+                    name,
+                    result.handle_start,
+                    result.handle_end,
+                    *handles,
+                )
+        version_data = instance.data.setdefault("versionData", {})
+        version_data["handleStart"], version_data["handleEnd"] = handles
+        instance.data["handleStart"], instance.data["handleEnd"] = handles
 
     def _get_profile(
         self, instance, product_base_type: str
@@ -136,10 +193,11 @@ class ExtractProductResources(
             int(retimed["handleEnd"]),
         )
 
-    def _render_output(self, instance, output: Dict[str, Any]):
+    def _render_output(
+        self, instance, output: Dict[str, Any], name: str
+    ) -> Tuple[str, rendering.RenderResult]:
         track_item = instance.data["trackItem"]
         file_type = output["file_type"]
-        name = output.get("repre_name") or file_type
         tags = list(output.get("tags") or [])
 
         # ayon-core's 'CollectOTIOProductResources' sets the version frame
@@ -214,3 +272,4 @@ class ExtractProductResources(
         if "review" in tags and "review" not in instance.data["families"]:
             instance.data["families"].append("review")
         self.log.debug("Added representation: %s", representation)
+        return name, result
