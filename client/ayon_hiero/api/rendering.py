@@ -1,7 +1,7 @@
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ayon_hiero.api import lib
 
@@ -106,12 +106,14 @@ def render_track_item(
     handle_end: int = 0,
     include_effects: bool = False,
     submission: str = DEFAULT_SUBMISSION,
+    source_range: Optional[Tuple[int, int]] = None,
 ) -> RenderResult:
     """Render the source media range of a track item with Hiero's exporter.
 
     The track item is rendered by a `TranscodeExporter` task, run by the
     export queue synchronously, so the files exist when this returns.
-    Retimes are never baked: the item's source range is rendered.
+    Retimes are never baked: the item's source range is rendered, or
+    `source_range` for an image sequence.
 
     Handles are clamped to the media available around the cut. Hiero
     renders one handle length on both ends, so an image sequence gets the
@@ -134,6 +136,10 @@ def render_track_item(
         include_effects: Bake soft effects of the track item.
         submission: Hiero render submission, 'Single Render Process' or
             'Frame Server'.
+        source_range: First and last source frame of the cut, relative
+            to the clip start, when it differs from the item's, e.g. the
+            range ayon-core computes for a retimed clip. Movies always
+            render the item's source range.
 
     Returns:
         RenderResult: What was rendered.
@@ -178,8 +184,11 @@ def render_track_item(
 
     # Source frames of the cut, relative to the clip start. With a retime
     # this is not the timeline duration.
-    source_in = int(min(track_item.sourceIn(), track_item.sourceOut()))
-    source_out = int(max(track_item.sourceIn(), track_item.sourceOut()))
+    item_in = int(min(track_item.sourceIn(), track_item.sourceOut()))
+    item_out = int(max(track_item.sourceIn(), track_item.sourceOut()))
+    source_in, source_out = item_in, item_out
+    if source_range is not None and not is_video:
+        source_in, source_out = (int(frame) for frame in source_range)
     cut_frame_end = frame_start + (source_out - source_in)
 
     # Handles clamped to the media available around the cut, in source
@@ -187,10 +196,21 @@ def render_track_item(
     clip_last = int(track_item.source().duration()) - 1
     head = max(0, min(int(handle_start), source_in))
     tail = max(0, min(int(handle_end), clip_last - source_out))
-    # Hiero renders one handle length on both ends, with black frames
-    # where there is no media. An image sequence gets the longer one and
-    # loses the extra frames afterwards, a movie gets the shorter one.
-    cut_handles = min(head, tail) if is_video else max(head, tail)
+
+    # Hiero renders the item's source range with one handle length on
+    # both ends, with black frames where there is no media. An image
+    # sequence gets enough to cover the wanted range and loses the extra
+    # frames afterwards, a movie gets the shorter handle.
+    if is_video:
+        cut_handles = min(head, tail)
+    else:
+        cut_handles = max(
+            0,
+            item_in - (source_in - head),
+            (source_out + tail) - item_out,
+        )
+    # Number the files so that 'source_in' lands on 'frame_start'
+    first_frame = frame_start - (source_in - (item_in - cut_handles))
 
     if is_video:
         file_template = f"{name}.{{ext}}"
@@ -205,7 +225,7 @@ def render_track_item(
         "cutHandles": cut_handles,
         "includeRetimes": False,
         "startFrameSource": "Custom",
-        "startFrameIndex": frame_start - cut_handles,
+        "startFrameIndex": first_frame,
     })
 
     # The exporter tags the track item it renders; keep the timeline as it is

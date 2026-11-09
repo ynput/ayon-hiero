@@ -224,3 +224,18 @@ def test_track_item_tags_unchanged(make_shot, tmp_path):
     _render(item, tmp_path)
 
     assert sorted(tag.name() for tag in item.tags()) == tags_before
+
+
+def test_source_range_overrides_item_range(make_shot, tmp_path, source_frame):
+    # One more source frame after the item's cut out (media 1071)
+    result = _render(
+        make_shot(),
+        tmp_path,
+        handle_start=0,
+        handle_end=0,
+        source_range=(20, 70),
+    )
+
+    assert [_frame(path) for path in result.files] == list(range(1001, 1052))
+    assert source_frame(result.files[0]) == 1021
+    assert source_frame(result.files[-1]) == 1071
