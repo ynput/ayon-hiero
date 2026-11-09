@@ -139,10 +139,60 @@ def test_output_colorspace_on_representation(make_shot, plate_instance):
 
 def test_empty_representation_name_uses_extension(make_shot, plate_instance):
     instance = plate_instance(make_shot())
+    output = _output(repre_name="", file_type="jpeg", codec_properties=[])
 
-    (repre,) = _run(instance, [_profile([_output(repre_name="")])])
+    (repre,) = _run(instance, [_profile([output])])
 
-    assert repre["name"] == "exr"
+    assert repre["name"] == repre["ext"] == "jpg"
+
+
+def test_name_clash_with_kept_original_raises(make_shot, plate_instance):
+    from ayon_core.pipeline import PublishError
+
+    instance = plate_instance(make_shot(), representations=[dict(ORIGINAL)])
+    profiles = [
+        _profile([_output(repre_name="")], keep_original_representation=True),
+    ]
+
+    with pytest.raises(PublishError, match="'exr'"):
+        _run(instance, profiles)
+    assert not os.path.exists(instance.data["stagingDir"])
+
+
+def test_version_handles_follow_rendered_files(make_shot, plate_instance):
+    instance = plate_instance(
+        make_shot(), versionData={"handleStart": 10, "handleEnd": 10}
+    )
+
+    _run(instance, [_profile([_output(with_handles=False)])])
+
+    version_data = instance.data["versionData"]
+    assert (version_data["handleStart"], version_data["handleEnd"]) == (0, 0)
+    assert (instance.data["handleStart"], instance.data["handleEnd"]) == (
+        0,
+        0,
+    )
+
+
+def test_version_handles_kept_with_original(make_shot, plate_instance):
+    instance = plate_instance(
+        make_shot(),
+        versionData={"handleStart": 10, "handleEnd": 10},
+        representations=[dict(ORIGINAL)],
+    )
+    profiles = [
+        _profile(
+            [_output(with_handles=False)], keep_original_representation=True
+        ),
+    ]
+
+    _run(instance, profiles)
+
+    version_data = instance.data["versionData"]
+    assert (version_data["handleStart"], version_data["handleEnd"]) == (
+        10,
+        10,
+    )
 
 
 def test_review_tag_adds_review_family(make_shot, plate_instance):
@@ -259,4 +309,56 @@ def test_same_frames_as_original_media(
     assert (source_frame(first), source_frame(last)) == (
         original_first,
         original_last,
+    ), details
+
+
+@pytest.mark.parametrize(
+    "shot",
+    [
+        pytest.param({}, id="plain"),
+        pytest.param(
+            {"source_in": 20, "source_out": 59, "speed": 2.0}, id="retimed"
+        ),
+    ],
+)
+def test_same_frames_as_original_movie(
+    make_shot, plate_instance, frame_coded_movie, movie_frame, shot
+):
+    item = make_shot(media=frame_coded_movie, **shot)
+    instance = plate_instance(item)
+    original = _collect_original_media(instance)
+    # ayon-core trims the movie to this range, counted from its first
+    # frame; without a trim range the whole movie is published
+    trim = instance.data.get("otioTrimmingRange")
+    if trim is None:
+        trim_start = 0
+        trim_duration = (
+            instance.data["otioClip"].available_range().duration.to_frames()
+        )
+    else:
+        trim_start = trim.start_time.to_frames()
+        trim_duration = trim.duration.to_frames()
+    # Written in the movie's colourspace, so the gray levels round-trip
+    output = _output(colorspace=item.sourceMediaColourTransform())
+    profiles = [_profile([output], keep_original_representation=True)]
+
+    rendered = _by_name(_run(instance, profiles))["plate_exr"]
+
+    details = (
+        f"original {original['frameStart']}-{original['frameEnd']}, "
+        f"trim {trim_start}+{trim_duration}, rendered "
+        f"{rendered['frameStart']}-{rendered['frameEnd']} "
+        f"({len(rendered['files'])} files), "
+        f"versionData {instance.data['versionData']}"
+    )
+    assert (rendered["frameStart"], rendered["frameEnd"]) == (
+        original["frameStart"],
+        original["frameEnd"],
+    ), details
+    assert len(rendered["files"]) == trim_duration, details
+    first = os.path.join(rendered["stagingDir"], rendered["files"][0])
+    last = os.path.join(rendered["stagingDir"], rendered["files"][-1])
+    assert (movie_frame(first), movie_frame(last)) == (
+        trim_start,
+        trim_start + trim_duration - 1,
     ), details

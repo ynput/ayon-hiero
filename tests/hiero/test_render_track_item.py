@@ -239,3 +239,48 @@ def test_source_range_overrides_item_range(make_shot, tmp_path, source_frame):
     assert [_frame(path) for path in result.files] == list(range(1001, 1052))
     assert source_frame(result.files[0]) == 1021
     assert source_frame(result.files[-1]) == 1071
+
+
+def test_movie_source_frames(
+    make_shot, tmp_path, frame_coded_movie, movie_frame
+):
+    item = make_shot(media=frame_coded_movie)
+
+    # Written in the movie's colourspace, so the gray levels round-trip
+    result = _render(
+        item, tmp_path, colorspace=item.sourceMediaColourTransform()
+    )
+
+    assert [_frame(path) for path in result.files] == list(range(991, 1061))
+    assert movie_frame(result.files[0]) == 10
+    assert movie_frame(result.files[-1]) == 79
+
+
+def test_retimed_shot_movie_output_uses_item_range(
+    make_shot, tmp_path, ffprobe
+):
+    # Item source 20-98 at 2x: 10 media frames before the cut, 1 after
+    item = make_shot(source_in=20, source_out=59, speed=2.0)
+
+    result = _render(item, tmp_path, file_type="mov", codec_properties={})
+
+    assert (result.handle_start, result.handle_end) == (1, 1)
+    output = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-count_frames",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=nb_read_frames",
+            "-of",
+            "csv=p=0",
+            result.files[0],
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert int(output.strip()) == 79 + 2
