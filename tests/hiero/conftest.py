@@ -70,6 +70,53 @@ def frame_coded_sequence(tmp_path_factory, oiiotool):
 
 
 @pytest.fixture(scope="session")
+def frame_coded_movie(tmp_path_factory, oiiotool):
+    """Lossless 8-bit mov with 100 frames; gray level is 2 * frame index."""
+    ffmpeg = _tool("FFMPEG", "ffmpeg")
+    folder = tmp_path_factory.mktemp("movie")
+    subprocess.run(
+        [
+            oiiotool,
+            "--frames",
+            "0-99",
+            "--pattern",
+            "constant:color={FRAME_NUMBER*2/255},{FRAME_NUMBER*2/255},"
+            "{FRAME_NUMBER*2/255}",
+            "320x180",
+            "3",
+            "-d",
+            "uint8",
+            "-o",
+            str(folder / "frame.#.png"),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    movie = folder / "plate.mov"
+    subprocess.run(
+        [
+            ffmpeg,
+            "-v",
+            "error",
+            "-framerate",
+            "24",
+            "-start_number",
+            "0",
+            "-i",
+            str(folder / "frame.%04d.png"),
+            "-c:v",
+            "png",
+            "-pix_fmt",
+            "rgb24",
+            str(movie),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return str(movie)
+
+
+@pytest.fixture(scope="session")
 def pixel_average(oiiotool):
     """Return the average RGB of an image file."""
     avg_re = re.compile(r"Stats Avg:\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)")
@@ -97,6 +144,20 @@ def source_frame(pixel_average):
         return int(round(red * 1000)) + 1000
 
     return _source_frame
+
+
+@pytest.fixture(scope="session")
+def movie_frame(pixel_average):
+    """Return the frame index coded in an image rendered from the movie.
+
+    The image must be written in the movie's colourspace.
+    """
+
+    def _movie_frame(path):
+        red = pixel_average(path)[0]
+        return int(round(red * 255 / 2))
+
+    return _movie_frame
 
 
 @pytest.fixture
