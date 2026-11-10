@@ -367,3 +367,85 @@ def test_same_frames_as_original_movie(
         trim_start,
         trim_start + trim_duration - 1,
     ), details
+
+
+class RecordingDialog:
+    """Stands in for `RenderProgressDialog`, records what it shows."""
+
+    created = []
+    cancel = False
+
+    def __init__(self, clip_count, output_count):
+        self.counts = (clip_count, output_count)
+        self.outputs = []
+        self.finished = False
+        RecordingDialog.created.append(self)
+
+    def start_output(self, clip_index, clip_name, index, total, name, done):
+        self.outputs.append((clip_index, clip_name, index, total, done))
+
+    def set_progress(self, progress, frame_count):
+        pass
+
+    def is_cancelled(self):
+        return self.cancel
+
+    def finish(self):
+        self.finished = True
+
+
+@pytest.fixture
+def recording_dialog(monkeypatch):
+    from ayon_hiero.api import render_progress
+
+    RecordingDialog.created = []
+    RecordingDialog.cancel = False
+    monkeypatch.setattr(
+        render_progress, "RenderProgressDialog", RecordingDialog
+    )
+    return RecordingDialog
+
+
+def test_progress_counts_clips_and_outputs(
+    make_shot, plate_instance, tmp_path, recording_dialog
+):
+    first = plate_instance(make_shot(name="sh010"), label="sh010 plate")
+    second = first.context.create_instance("plateB")
+    second.data.update(
+        plate_instance(make_shot(name="sh020")).data,
+        label="sh020 plate",
+        stagingDir=str(tmp_path / "staging_b"),
+        representations=[],
+        versionData={},
+    )
+    outputs = [_output(), _output(repre_name="plate_jpg", file_type="jpeg")]
+
+    for instance in (first, second):
+        _run(instance, [_profile(outputs)])
+
+    dialogs = recording_dialog.created
+    assert [dialog.counts for dialog in dialogs] == [(2, 4), (2, 4)]
+    assert dialogs[0].outputs == [
+        (1, "sh010 plate", 1, 2, 0),
+        (1, "sh010 plate", 2, 2, 1),
+    ]
+    assert dialogs[1].outputs == [
+        (2, "sh020 plate", 1, 2, 2),
+        (2, "sh020 plate", 2, 2, 3),
+    ]
+    assert all(dialog.finished for dialog in dialogs)
+    assert len(second.data["representations"]) == 2
+
+
+def test_progress_cancel_raises_publish_error(
+    make_shot, plate_instance, recording_dialog
+):
+    from ayon_core.pipeline import PublishError
+
+    recording_dialog.cancel = True
+    instance = plate_instance(make_shot())
+
+    with pytest.raises(PublishError, match="cancelled"):
+        _run(instance, [_profile([_output()])])
+
+    assert recording_dialog.created[0].finished
