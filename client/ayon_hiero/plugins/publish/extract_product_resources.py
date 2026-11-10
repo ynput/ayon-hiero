@@ -6,7 +6,7 @@ import pyblish.api
 
 from ayon_core.lib import filter_profiles
 from ayon_core.pipeline import PublishError, publish
-from ayon_hiero.api import rendering
+from ayon_hiero.api import render_progress, rendering
 
 
 class ExtractProductResources(
@@ -24,6 +24,10 @@ class ExtractProductResources(
     media, collected by ayon-core's `CollectOTIOProductResources`, is
     published. With a profile the original media representation is
     replaced, unless `keep_original_representation` is enabled.
+
+    With Hiero's UI the renders run in the export queue and a modal dialog
+    shows which clip and output renders and how far the publish is, with
+    a button to cancel it.
 
     The order is the one of the Flame and Resolve plugins: after the
     collectors, before ayon-core's `ExtractOTIOTrimmingVideo`
@@ -44,10 +48,7 @@ class ExtractProductResources(
     profiles: List[Dict[str, Any]] = []
 
     def process(self, instance):
-        product_base_type = (
-            instance.data.get("productBaseType")
-            or instance.data["productType"]
-        )
+        product_base_type = self._get_product_base_type(instance)
         profile = self._get_profile(instance, product_base_type)
         if not profile:
             return
@@ -88,12 +89,75 @@ class ExtractProductResources(
                 )
             taken.add(name)
 
-        results = [
-            self._render_output(instance, output, name)
-            for output, name in zip(outputs, names)
-        ]
+        dialog, clip_index, outputs_done = self._start_progress(instance)
+        results = []
+        try:
+            for index, (output, name) in enumerate(zip(outputs, names)):
+                if dialog is not None:
+                    dialog.start_output(
+                        clip_index,
+                        instance.data.get("label")
+                        or instance.data["productName"],
+                        index + 1,
+                        len(outputs),
+                        f"{name} ({output['file_type']},"
+                        f" {self.render_submission})",
+                        outputs_done + index,
+                    )
+                results.append(
+                    self._render_output(instance, output, name, dialog)
+                )
+        finally:
+            if dialog is not None:
+                dialog.finish()
         if not keep_original:
             self._update_handles(instance, results)
+
+    @staticmethod
+    def _get_product_base_type(instance) -> str:
+        return (
+            instance.data.get("productBaseType")
+            or instance.data["productType"]
+        )
+
+    def _start_progress(self, instance):
+        """Progress dialog for the instance's renders, without UI None.
+
+        The clips and outputs to render are counted once per publish, from
+        the instances this plugin processes and their profiles.
+
+        Returns:
+            tuple: The dialog, the position of the clip from 1 and the
+                outputs of the publish rendered before the clip's.
+        """
+        if not render_progress.has_gui():
+            return None, 0, 0
+
+        context = instance.context
+        plan = context.data.get("hieroProductResourcesRenders")
+        if plan is None:
+            plan = {}
+            for other in pyblish.api.instances_by_plugin(context, type(self)):
+                if not other.data.get("publish", True):
+                    continue
+                product_base_type = self._get_product_base_type(other)
+                profile = self._get_profile(other, product_base_type)
+                outputs = (profile or {}).get(product_base_type) or []
+                if outputs:
+                    plan[other.id] = len(outputs)
+            context.data["hieroProductResourcesRenders"] = plan
+
+        if instance.id not in plan:
+            # Not counted, e.g. data changed since: render it on its own
+            plan = {instance.id: 0}
+        clip_ids = list(plan)
+        position = clip_ids.index(instance.id)
+        outputs_done = sum(plan[clip_id] for clip_id in clip_ids[:position])
+        dialog = render_progress.RenderProgressDialog(
+            clip_count=len(plan),
+            output_count=max(sum(plan.values()), outputs_done + 1),
+        )
+        return dialog, position + 1, outputs_done
 
     @staticmethod
     def _get_output_name(output: Dict[str, Any]) -> str:
@@ -195,7 +259,11 @@ class ExtractProductResources(
         )
 
     def _render_output(
-        self, instance, output: Dict[str, Any], name: str
+        self,
+        instance,
+        output: Dict[str, Any],
+        name: str,
+        progress: Optional[rendering.RenderProgress] = None,
     ) -> Tuple[str, rendering.RenderResult]:
         track_item = instance.data["trackItem"]
         file_type = output["file_type"]
@@ -240,7 +308,13 @@ class ExtractProductResources(
                 include_effects=output.get("include_effects", False),
                 submission=self.render_submission,
                 source_range=source_range,
+                progress=progress,
             )
+        except rendering.RenderCancelled as exc:
+            raise PublishError(
+                f"Rendering '{name}' of '{track_item.name()}' was cancelled.",
+                description="The render was cancelled in its progress dialog.",
+            ) from exc
         except rendering.RenderError as exc:
             raise PublishError(
                 f"Rendering '{name}' of '{track_item.name()}' failed: {exc}",

@@ -8,6 +8,7 @@ of handles the files are 0991-1060 and hold media frames 1011-1080.
 import os
 import re
 import subprocess
+import time
 
 import pytest
 
@@ -294,3 +295,73 @@ def test_retimed_shot_movie_output_uses_item_range(
         text=True,
     ).stdout
     assert int(output.strip()) == 79 + 2
+
+
+class RecordingProgress:
+    """`RenderProgress` that records the reports, cancels when told."""
+
+    def __init__(self, cancel_after=None):
+        self.values = []
+        self.frame_counts = set()
+        self.cancel_after = cancel_after
+
+    def set_progress(self, progress, frame_count):
+        self.values.append(progress)
+        self.frame_counts.add(frame_count)
+
+    def is_cancelled(self):
+        if self.cancel_after is None:
+            return False
+        return bool(self.values) and self.values[-1] > self.cancel_after
+
+
+@pytest.mark.parametrize("submission", SUBMISSIONS)
+def test_progress_reported_while_rendering(
+    request, make_shot, tmp_path, source_frame, submission
+):
+    _use_submission(request, submission)
+    progress = RecordingProgress()
+
+    result = _render(
+        make_shot(), tmp_path, submission=submission, progress=progress
+    )
+
+    frames = [_frame(path) for path in result.files]
+    assert frames == list(range(991, 1061))
+    assert source_frame(result.files[0]) == 1011
+    assert source_frame(result.files[-1]) == 1080
+    assert progress.values == sorted(progress.values)
+    assert progress.values[-1] == 1.0
+    assert progress.frame_counts == {70}
+
+
+@pytest.mark.parametrize("submission", SUBMISSIONS)
+@pytest.mark.parametrize(
+    "cancel_after", [None, 0.0], ids=["at-once", "rendering"]
+)
+def test_progress_cancel_stops_render(
+    request, make_shot, tmp_path, submission, cancel_after
+):
+    _use_submission(request, submission)
+    if cancel_after is None:
+        progress = RecordingProgress()
+        progress.is_cancelled = lambda: True
+    else:
+        progress = RecordingProgress(cancel_after=cancel_after)
+    started = time.time()
+
+    with pytest.raises(rendering.RenderCancelled):
+        _render(
+            make_shot(source_in=0, source_out=99),
+            tmp_path,
+            handle_start=0,
+            handle_end=0,
+            submission=submission,
+            progress=progress,
+        )
+
+    # The task left the export queue, it did not time out
+    assert time.time() - started < rendering.CANCEL_TIMEOUT
+    # Nothing is left rendering: the next render works
+    result = _render(make_shot(), tmp_path / "next", submission=submission)
+    assert len(result.files) == 70

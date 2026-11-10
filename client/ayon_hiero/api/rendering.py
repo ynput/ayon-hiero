@@ -1,7 +1,8 @@
 import os
 import re
+import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from ayon_hiero.api import lib
 
@@ -12,6 +13,137 @@ DEFAULT_SUBMISSION = "Single Render Process"
 
 class RenderError(Exception):
     """A track item could not be rendered."""
+
+
+class RenderCancelled(RenderError):
+    """The render was cancelled through its progress object."""
+
+
+class RenderProgress(Protocol):
+    """Receives the progress of `render_track_item` and can cancel it."""
+
+    def set_progress(self, progress: float, frame_count: int) -> None:
+        """Rendered part of the frames, 0 to 1, and how many are rendered."""
+
+    def is_cancelled(self) -> bool:
+        """Whether the render should stop."""
+
+
+# Seconds a cancelled task gets to leave Hiero's export queue
+CANCEL_TIMEOUT = 15
+# Ids of the tasks Hiero's export queue started and finished
+_started_tasks = set()
+_finished_tasks = set()
+_task_callbacks_added = False
+
+
+def _watch_tasks():
+    """Record the tasks Hiero's export queue starts and finishes."""
+    global _task_callbacks_added
+    if not _task_callbacks_added:
+        from hiero.core.FnExporterBase import TaskCallbacks
+
+        TaskCallbacks.addCallback(
+            TaskCallbacks.onTaskStart,
+            lambda task: _started_tasks.add(id(task)),
+        )
+        TaskCallbacks.addCallback(
+            TaskCallbacks.onTaskFinish,
+            lambda task: _finished_tasks.add(id(task)),
+        )
+        _task_callbacks_added = True
+
+
+def _cancel_task(task):
+    """Stop a task and let the export queue finish it.
+
+    A cancelled Frame Server render never reaches its frame count, so the
+    task, and the render task it runs, get an error to end their steps.
+    The task has to be started: a task with an error before it starts is
+    never finished.
+    """
+    task.forcedAbort()
+    for each in (task, getattr(task, "_renderTask", None)):
+        if each is not None and not each.error():
+            each.setError("Cancelled")
+
+
+def _execute_processor(
+    processor_preset,
+    items,
+    submission: str,
+    progress: Optional[RenderProgress],
+    frame_count: int,
+):
+    """Render `items` and return when the files are written.
+
+    Without `progress` the export runs synchronously and blocks the UI.
+    With it the export runs in Hiero's export queue while a local event
+    loop keeps the UI responsive and reports the progress.
+    """
+    if progress is None:
+        try:
+            hiero.core.taskRegistry.createAndExecuteProcessor(
+                processor_preset,
+                items,
+                submissionName=submission,
+                synchronous=True,
+            )
+        except RuntimeError as exc:
+            raise RenderError(str(exc)) from exc
+        return
+
+    from qtpy import QtCore
+
+    _watch_tasks()
+    processor = hiero.core.taskRegistry.createProcessor(
+        processor_preset, submission, synchronous=False
+    )
+    try:
+        tasks = processor.startProcessing(items) or []
+    except Exception as exc:
+        raise RenderError(processor.errors() or str(exc)) from exc
+
+    state = {"cancelled_at": None}
+    to_cancel = list(tasks)
+    loop = QtCore.QEventLoop()
+
+    def _poll():
+        done = sum(task.progress() for task in tasks) / max(1, len(tasks))
+        progress.set_progress(min(1.0, done), frame_count)
+        cancelled_at = state["cancelled_at"]
+        if cancelled_at is None and progress.is_cancelled():
+            state["cancelled_at"] = cancelled_at = time.time()
+        if cancelled_at is not None:
+            for task in list(to_cancel):
+                if id(task) in _started_tasks:
+                    _cancel_task(task)
+                    to_cancel.remove(task)
+        finished = all(id(task) in _finished_tasks for task in tasks)
+        if finished or (
+            cancelled_at is not None
+            and time.time() - cancelled_at > CANCEL_TIMEOUT
+        ):
+            loop.quit()
+
+    timer = QtCore.QTimer()
+    timer.setInterval(100)
+    timer.timeout.connect(_poll)
+    timer.start()
+    try:
+        _poll()
+        loop.exec_()
+    finally:
+        timer.stop()
+        for task in tasks:
+            _started_tasks.discard(id(task))
+            _finished_tasks.discard(id(task))
+
+    if state["cancelled_at"] is not None:
+        raise RenderCancelled("The render was cancelled.")
+    errors = [task.error() for task in tasks if task.error()]
+    if errors:
+        raise RenderError("\n".join(errors))
 
 
 @dataclass
@@ -122,11 +254,14 @@ def render_track_item(
     include_effects: bool = False,
     submission: str = DEFAULT_SUBMISSION,
     source_range: Optional[Tuple[int, int]] = None,
+    progress: Optional[RenderProgress] = None,
 ) -> RenderResult:
     """Render the source media range of a track item with Hiero's exporter.
 
-    The track item is rendered by a `TranscodeExporter` task, run by the
-    export queue synchronously, so the files exist when this returns.
+    The track item is rendered by a `TranscodeExporter` task, so the
+    files exist when this returns. The export queue runs it synchronously
+    and the UI does not update, unless `progress` is given: then the UI
+    stays responsive and `progress` gets the rendered part.
     Retimes are never baked: the item's source range is rendered, or
     `source_range` for an image sequence.
 
@@ -155,6 +290,8 @@ def render_track_item(
             to the clip start, when it differs from the item's, e.g. the
             range ayon-core computes for a retimed clip. Movies always
             render the item's source range.
+        progress: Receives the progress and can cancel the render, which
+            raises `RenderCancelled`.
 
     Returns:
         RenderResult: What was rendered.
@@ -163,6 +300,7 @@ def render_track_item(
         RenderError: The media is offline, the settings are not valid,
             the source range is outside the media or Hiero did not render
             every expected file.
+        RenderCancelled: `progress` cancelled the render.
     """
     from hiero.core import ItemWrapper
     from hiero.exporters.FnShotProcessor import ShotProcessorPreset
@@ -260,13 +398,16 @@ def render_track_item(
     # The exporter tags the track item it renders; keep the timeline as it is
     tag_names_before = {tag.name() for tag in track_item.tags()}
     try:
-        hiero.core.taskRegistry.createAndExecuteProcessor(
+        _execute_processor(
             processor_preset,
             [ItemWrapper(track_item)],
-            submissionName=submission,
-            synchronous=True,
+            submission,
+            progress,
+            frame_count=(item_out - item_in + 1) + 2 * cut_handles,
         )
-    except RuntimeError as exc:
+    except RenderCancelled:
+        raise
+    except RenderError as exc:
         raise RenderError(
             f"Hiero failed to render '{track_item.name()}': {exc}"
         ) from exc
