@@ -241,6 +241,16 @@ def test_source_range_overrides_item_range(make_shot, tmp_path, source_frame):
     assert source_frame(result.files[-1]) == 1071
 
 
+@pytest.mark.parametrize("source_range", [(-1, 49), (20, 100), (86420, 86469)])
+def test_source_range_outside_media_raises(make_shot, tmp_path, source_range):
+    # A range outside the clip renders black frames, e.g. a range off by
+    # the media's timecode start renders ~86400 of them
+    with pytest.raises(rendering.RenderError, match="outside"):
+        _render(make_shot(), tmp_path, source_range=source_range)
+
+    assert not (tmp_path / "render").exists()
+
+
 def test_movie_source_frames(
     make_shot, tmp_path, frame_coded_movie, movie_frame
 ):

@@ -160,8 +160,9 @@ def render_track_item(
         RenderResult: What was rendered.
 
     Raises:
-        RenderError: The media is offline, the settings are not valid or
-            Hiero did not render every expected file.
+        RenderError: The media is offline, the settings are not valid,
+            the source range is outside the media or Hiero did not render
+            every expected file.
     """
     from hiero.core import ItemWrapper
     from hiero.exporters.FnShotProcessor import ShotProcessorPreset
@@ -213,6 +214,12 @@ def render_track_item(
     # Handles clamped to the media available around the cut, in source
     # frames ('handleInLength()' counts timeline frames)
     clip_last = int(track_item.source().duration()) - 1
+    # Hiero renders black frames outside the media, as many as asked for
+    if source_in < 0 or source_out > clip_last:
+        raise RenderError(
+            f"Source range {source_in}-{source_out} of"
+            f" '{track_item.name()}' is outside its media (0-{clip_last})."
+        )
     head = max(0, min(int(handle_start), source_in))
     tail = max(0, min(int(handle_end), clip_last - source_out))
 

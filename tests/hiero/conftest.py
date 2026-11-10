@@ -43,10 +43,10 @@ def ffprobe():
     return _tool("FFPROBE", "ffprobe")
 
 
-@pytest.fixture(scope="session")
-def frame_coded_sequence(tmp_path_factory, oiiotool):
-    """First file of an EXR sequence 1001-1100 with frame-coded pixels."""
-    folder = tmp_path_factory.mktemp("media")
+def _write_frame_coded_sequence(folder, oiiotool, timecode=None):
+    attributes = []
+    if timecode:
+        attributes = ["--attrib:type=timecode", "smpte:TimeCode", timecode]
     subprocess.run(
         [
             oiiotool,
@@ -58,6 +58,7 @@ def frame_coded_sequence(tmp_path_factory, oiiotool):
             "3",
             "-d",
             "half",
+            *attributes,
             "-o",
             str(folder / "plate.#.exr"),
         ],
@@ -67,6 +68,28 @@ def frame_coded_sequence(tmp_path_factory, oiiotool):
     files = sorted(folder.glob("plate.*.exr"))
     assert len(files) == MEDIA_LAST_FRAME - MEDIA_FIRST_FRAME + 1
     return str(files[0])
+
+
+@pytest.fixture(scope="session")
+def frame_coded_sequence(tmp_path_factory, oiiotool):
+    """First file of an EXR sequence 1001-1100 with frame-coded pixels."""
+    return _write_frame_coded_sequence(
+        tmp_path_factory.mktemp("media"), oiiotool
+    )
+
+
+@pytest.fixture(scope="session")
+def timecoded_sequence(tmp_path_factory, oiiotool):
+    """`frame_coded_sequence` with an embedded timecode of 01:00:00:00.
+
+    Hiero starts the clip's timecode, and the OTIO available range, there
+    and not at the first file frame, as camera plates do.
+    """
+    return _write_frame_coded_sequence(
+        tmp_path_factory.mktemp("timecoded_media"),
+        oiiotool,
+        timecode="01:00:00:00",
+    )
 
 
 @pytest.fixture(scope="session")
