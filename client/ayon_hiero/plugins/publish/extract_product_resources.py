@@ -182,9 +182,10 @@ class ExtractProductResources(
         media_in = math.floor(retimed["mediaIn"])
         media_out = math.ceil(retimed["mediaOut"])
         # Frames of a sequence are its file frame numbers, frames of a
-        # movie count from its first frame already.
+        # movie count from its first frame already. The available range
+        # of a sequence starts at its timecode, not at its first file.
         if is_clip_from_media_sequence(otio_clip):
-            offset = otio_clip.available_range().start_time.to_frames()
+            offset = otio_clip.media_reference.start_frame
             media_in -= offset
             media_out -= offset
         return (

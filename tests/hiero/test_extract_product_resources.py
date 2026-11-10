@@ -274,17 +274,22 @@ def _collect_original_media(instance):
 
 
 @pytest.mark.parametrize(
-    "shot",
+    "shot, media",
     [
-        pytest.param({}, id="plain"),
+        pytest.param({}, None, id="plain"),
         pytest.param(
-            {"source_in": 20, "source_out": 59, "speed": 2.0}, id="retimed"
+            {"source_in": 20, "source_out": 59, "speed": 2.0},
+            None,
+            id="retimed",
         ),
+        pytest.param({}, "timecoded_sequence", id="timecode"),
     ],
 )
 def test_same_frames_as_original_media(
-    make_shot, plate_instance, source_frame, shot
+    request, make_shot, plate_instance, source_frame, shot, media
 ):
+    if media:
+        shot = dict(shot, media=request.getfixturevalue(media))
     instance = plate_instance(make_shot(**shot))
     original = _collect_original_media(instance)
     profiles = [_profile([_output()], keep_original_representation=True)]
