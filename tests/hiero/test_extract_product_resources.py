@@ -129,6 +129,19 @@ def test_representation_fields(make_shot, plate_instance):
     assert repre["colorspaceData"]["colorspace"] == "scene_linear"
 
 
+def test_single_frame_is_a_file_not_a_sequence(make_shot, plate_instance):
+    # The integrator rejects a one item file list as a sequence
+    instance = plate_instance(
+        make_shot(source_in=20, source_out=20), handles=0
+    )
+
+    (repre,) = _run(instance, [_profile([_output(with_handles=False)])])
+
+    assert isinstance(repre["files"], str)
+    assert repre["files"].endswith(".exr")
+    assert os.path.isfile(os.path.join(repre["stagingDir"], repre["files"]))
+
+
 def test_output_colorspace_on_representation(make_shot, plate_instance):
     instance = plate_instance(make_shot())
 

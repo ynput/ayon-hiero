@@ -7,11 +7,17 @@ licence and a display.
 
 ## Run
 
+Run it with the AYON launcher, so Hiero gets the AYON environment: the
+ayon-core of the launcher, and the `oiiotool` and `ffmpeg` it provides.
+
 ```shell
-python tests/run_hiero_tests.py
-python tests/run_hiero_tests.py --app /Applications/Nuke16.1v1
-python tests/run_hiero_tests.py -- tests/hiero/test_render_track_item.py -k handles
+/path/to/ayon run tests/run_hiero_tests.py
+/path/to/ayon run tests/run_hiero_tests.py --app /Applications/Nuke16.1v1
+/path/to/ayon run tests/run_hiero_tests.py -- tests/hiero/test_render_track_item.py -k handles
 ```
+
+A plain `python tests/run_hiero_tests.py` works too, with the tools below
+found on your own.
 
 Arguments after `--` go to pytest. The exit code is pytest's.
 
@@ -20,8 +26,9 @@ What the runner needs:
 - **Hiero**: `--app` (a Nuke executable, `.app` bundle or install folder),
   `AYON_HIERO_EXECUTABLE`, or the newest Nuke 16/17 in the usual install
   folder. Tested with Hiero 16.1 and 17.0.
-- **ayon-core**: `--core`, `AYON_CORE_ROOT`, or an `ayon-core` checkout
-  next to this repository (or next to a parent folder, for worktrees).
+- **ayon-core**: `--core`, `AYON_CORE_ROOT`, the launcher's ayon-core
+  (`ayon run`), or an `ayon-core` checkout next to this repository (or
+  next to a parent folder, for worktrees).
 - **uv**: installs `requirements-hiero.txt` into `tests/.deps/` for the
   Python of the Hiero build, again when the file changes.
 - **oiiotool** (`OIIOTOOL` or `PATH`): makes the test media and reads
