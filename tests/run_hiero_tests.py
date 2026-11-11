@@ -5,7 +5,8 @@ started with `--hiero -q --script tests/hiero/bootstrap.py`. A Hiero window
 opens for the duration of the run.
 
 Usage:
-    python tests/run_hiero_tests.py [--app PATH] [--core PATH] [-- PYTEST ARGS]
+    ayon run tests/run_hiero_tests.py [--app PATH] [--core PATH] [-- PYTEST ARGS]
+    python tests/run_hiero_tests.py ...  (without the AYON launcher)
 
 Only the standard library is used, so any Python 3.9+ runs this file.
 See `tests/README.md`.
@@ -14,6 +15,7 @@ See `tests/README.md`.
 import argparse
 import glob
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -111,8 +113,9 @@ def find_hiero_executable(app_path=None):
 def find_ayon_core_client(core_path=None):
     """Find the `client` folder of an ayon-core checkout.
 
-    Order: `--core`, `AYON_CORE_ROOT`, an `ayon-core` folder next to this
-    repository or next to any of its parent folders (worktrees).
+    Order: `--core`, `AYON_CORE_ROOT`, the ayon-core of the AYON launcher
+    this runs in (`ayon run`), an `ayon-core` folder next to this repository
+    or next to any of its parent folders (worktrees).
     """
     for path in (core_path, os.environ.get("AYON_CORE_ROOT")):
         if path:
@@ -120,6 +123,10 @@ def find_ayon_core_client(core_path=None):
             if not os.path.isdir(os.path.join(client, "ayon_core")):
                 raise SystemExit(f"'{path}' is not an ayon-core checkout.")
             return client
+
+    spec = importlib.util.find_spec("ayon_core")
+    if spec and spec.submodule_search_locations:
+        return os.path.dirname(list(spec.submodule_search_locations)[0])
 
     current = REPO_ROOT
     while True:
