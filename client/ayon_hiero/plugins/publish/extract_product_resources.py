@@ -330,7 +330,9 @@ class ExtractProductResources(
             "name": name,
             "outputName": name,
             "ext": os.path.splitext(filenames[0])[1].lstrip("."),
-            "files": filenames if result.is_sequence else filenames[0],
+            # A single frame is a file name, not a one item sequence, which
+            # the integrator rejects as "not proper sequence files"
+            "files": filenames if len(filenames) > 1 else filenames[0],
             "stagingDir": output_dir,
             "tags": tags,
             "custom_tags": list(output.get("custom_tags") or []),
