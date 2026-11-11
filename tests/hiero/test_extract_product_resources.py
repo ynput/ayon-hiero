@@ -278,6 +278,11 @@ def _collect_original_media(instance):
         "publish",
         "collect_otio_product_resources.py",
     )
+    if not os.path.isfile(path):
+        pytest.skip(
+            "This ayon-core has no CollectOTIOProductResources, pass "
+            "--core with a checkout that has it"
+        )
     spec = importlib.util.spec_from_file_location("_core_collector", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

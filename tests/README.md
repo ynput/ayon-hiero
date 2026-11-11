@@ -16,6 +16,10 @@ ayon-core of the launcher, and the `oiiotool` and `ffmpeg` it provides.
 /path/to/ayon run tests/run_hiero_tests.py -- tests/hiero/test_render_track_item.py -k handles
 ```
 
+The parity tests (`test_same_frames_as_original_*`) need an ayon-core with
+`CollectOTIOProductResources`. They are skipped when the launcher's
+ayon-core is older: pass `--core` with a newer checkout.
+
 A plain `python tests/run_hiero_tests.py` works too, with the tools below
 found on your own.
 
