@@ -68,6 +68,28 @@ def _cancel_task(task):
             each.setError("Cancelled")
 
 
+FRAME_SERVER_SUBMISSION = "Frame Server"
+
+
+def _check_frame_server():
+    """Raise if the Frame Server does not answer.
+
+    Hiero queues a Frame Server render even when the server is down, and
+    then waits for it for ever.
+    """
+    try:
+        from hiero.ui.nuke_bridge import FnNsFrameServer
+    except ImportError:
+        return  # Hiero without UI has no Frame Server to check
+    if not FnNsFrameServer.isServerRunning(timeout=5):
+        raise RenderError(
+            "The Nuke Frame Server is not reachable. Restart it from the "
+            "Hiero status bar, check that a firewall does not block it, or "
+            "set `Render submission` to 'Single Render Process' in the "
+            "Extract Product Resources settings."
+        )
+
+
 def _execute_processor(
     processor_preset,
     items,
@@ -81,6 +103,9 @@ def _execute_processor(
     With it the export runs in Hiero's export queue while a local event
     loop keeps the UI responsive and reports the progress.
     """
+    if submission == FRAME_SERVER_SUBMISSION:
+        _check_frame_server()
+
     if progress is None:
         try:
             hiero.core.taskRegistry.createAndExecuteProcessor(
