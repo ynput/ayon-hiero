@@ -365,3 +365,22 @@ def test_progress_cancel_stops_render(
     # Nothing is left rendering: the next render works
     result = _render(make_shot(), tmp_path / "next", submission=submission)
     assert len(result.files) == 70
+
+
+@pytest.mark.parametrize("with_progress", [False, True])
+def test_unreachable_frame_server_raises(
+    make_shot, tmp_path, monkeypatch, with_progress
+):
+    from hiero.ui.nuke_bridge import FnNsFrameServer
+
+    monkeypatch.setattr(
+        FnNsFrameServer, "isServerRunning", lambda timeout=1: False
+    )
+
+    with pytest.raises(rendering.RenderError, match="Frame Server"):
+        _render(
+            make_shot(),
+            tmp_path,
+            submission="Frame Server",
+            progress=RecordingProgress() if with_progress else None,
+        )
