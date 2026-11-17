@@ -122,12 +122,6 @@ def menu_install():
         lambda: host_tools.show_scene_inventory(parent=main_window)
     )
 
-    library_action = menu.addAction("Library...")
-    library_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
-    library_action.triggered.connect(
-        lambda: host_tools.show_library_loader(parent=main_window)
-    )
-
     if is_dev_mode_enabled():
         menu.addSeparator()
         reload_action = menu.addAction("Reload pipeline")
