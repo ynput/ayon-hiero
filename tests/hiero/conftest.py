@@ -93,6 +93,34 @@ def timecoded_sequence(tmp_path_factory, oiiotool):
 
 
 @pytest.fixture(scope="session")
+def sequence_from_1(tmp_path_factory, oiiotool):
+    """First file of an EXR sequence 1-50, red channel `frame / 1000`.
+
+    Its first file frame is lower than the handles the tests ask for, the
+    case where Hiero cannot pad the head handle with black frames.
+    """
+    folder = tmp_path_factory.mktemp("media_from_1")
+    subprocess.run(
+        [
+            oiiotool,
+            "--frames",
+            "1-50",
+            "--pattern",
+            "constant:color={FRAME_NUMBER/1000},0.25,0.5",
+            "320x180",
+            "3",
+            "-d",
+            "half",
+            "-o",
+            str(folder / "plate.#.exr"),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return str(folder / "plate.0001.exr")
+
+
+@pytest.fixture(scope="session")
 def frame_coded_movie(tmp_path_factory, oiiotool):
     """Lossless 8-bit mov with 100 frames; gray level is 2 * frame index."""
     ffmpeg = _tool("FFMPEG", "ffmpeg")
@@ -277,8 +305,17 @@ def load_publish_plugin(filename, class_name, **attributes):
 
 
 class StubTemplateItem:
+    """Publish template item; `item["path"].template` or `item.template`.
+
+    ayon-core 1.10.9 reads `get_template_item(...)["path"].template`, older
+    versions `get_template_item("publish", name, "path").template`.
+    """
+
     def __init__(self, template):
         self.template = template
+
+    def __getitem__(self, key):
+        return self
 
 
 class StubAnatomy:

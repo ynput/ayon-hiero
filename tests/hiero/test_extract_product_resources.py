@@ -43,12 +43,10 @@ def _output(**kwargs):
 
 def _profile(outputs, **kwargs):
     profile = {
-        "name": "Plate #1",
         "task_types": [],
         "task_names": [],
-        "product_base_type": "plate",
         "keep_original_representation": False,
-        "plate": outputs,
+        "outputs": outputs,
     }
     profile.update(kwargs)
     return profile
@@ -101,13 +99,27 @@ def test_profile_keeps_original(make_shot, plate_instance):
     ]
 
 
-def test_profile_without_outputs_raises(make_shot, plate_instance):
-    from ayon_core.pipeline import PublishError
-
+def test_profile_without_outputs_keeps_original(make_shot, plate_instance):
     instance = plate_instance(make_shot(), representations=[dict(ORIGINAL)])
 
-    with pytest.raises(PublishError):
-        _run(instance, [_profile([])])
+    representations = _run(instance, [_profile([])])
+
+    assert representations == [ORIGINAL]
+    assert not os.path.exists(instance.data["stagingDir"])
+
+
+def test_other_product_base_type_is_skipped(make_shot, plate_instance):
+    instance = plate_instance(
+        make_shot(),
+        representations=[dict(ORIGINAL)],
+        productBaseType="audio",
+        productType="audio",
+    )
+
+    representations = _run(instance, [_profile([_output()])])
+
+    assert representations == [ORIGINAL]
+    assert not os.path.exists(instance.data["stagingDir"])
 
 
 def test_representation_fields(make_shot, plate_instance):
@@ -342,6 +354,9 @@ def test_same_frames_as_original_media(
         pytest.param(
             {"source_in": 20, "source_out": 59, "speed": 2.0}, id="retimed"
         ),
+        # Movies are numbered from 1: the head handle reaches below file
+        # frame 0, review 5927505591 of ynput/ayon-hiero#185
+        pytest.param({"source_in": 0, "source_out": 16}, id="media-start"),
     ],
 )
 def test_same_frames_as_original_movie(

@@ -384,3 +384,57 @@ def test_unreachable_frame_server_raises(
             submission="Frame Server",
             progress=RecordingProgress() if with_progress else None,
         )
+
+
+@pytest.mark.parametrize("submission", SUBMISSIONS)
+@pytest.mark.parametrize(
+    "media, source_in",
+    [
+        pytest.param("sequence_from_1", 0, id="sequence-cut-at-start"),
+        pytest.param("sequence_from_1", 5, id="sequence-5-frames-in"),
+        pytest.param("frame_coded_movie", 0, id="movie-cut-at-start"),
+    ],
+)
+def test_head_handle_below_file_frame_zero(
+    request, make_shot, tmp_path, pixel_average, submission, media, source_in
+):
+    # Hiero pads a missing head handle with black frames only down to
+    # file frame 0, then starts at file frame 0 and still numbers that
+    # file with the requested start frame. Movies are numbered from 1.
+    # Review 5927505591 of ynput/ayon-hiero#185.
+    _use_submission(request, submission)
+    item = make_shot(
+        media=request.getfixturevalue(media),
+        source_in=source_in,
+        source_out=source_in + 16,
+    )
+    assert int(item.source().sourceIn()) < 11
+
+    if media == "frame_coded_movie":
+        # gray level is 2 * frame index, from 0
+        decode = request.getfixturevalue("movie_frame")
+    else:
+        # red is frame / 1000, file frame 1 is clip frame 0
+
+        def decode(path):
+            return int(round(pixel_average(path)[0] * 1000)) - 1
+
+    # Written in the media's colourspace, so the pixel values round-trip
+    result = _render(
+        item,
+        tmp_path,
+        handle_start=11,
+        handle_end=11,
+        submission=submission,
+        colorspace=item.sourceMediaColourTransform(),
+    )
+
+    head = min(11, source_in)
+    assert (result.handle_start, result.handle_end) == (head, 11)
+    assert [_frame(path) for path in result.files] == list(
+        range(1001 - head, 1001 + 16 + 11 + 1)
+    )
+    assert decode(result.files[0]) == source_in - head
+    by_frame = {_frame(path): path for path in result.files}
+    assert decode(by_frame[1001]) == source_in
+    assert decode(result.files[-1]) == source_in + 16 + 11
