@@ -35,9 +35,12 @@ What the runner needs:
   next to a parent folder, for worktrees).
 - **uv**: installs `requirements-hiero.txt` into `tests/.deps/` for the
   Python of the Hiero build, again when the file changes.
-- **oiiotool** (`OIIOTOOL` or `PATH`): makes the test media and reads
-  pixels back. **ffprobe** (`FFPROBE` or `PATH`) for the movie tests.
-  Tests that miss a tool are skipped.
+- **oiiotool**, **ffmpeg** and **ffprobe**: make the test media, read
+  pixels back and count movie frames. Taken from `OIIOTOOL`, `FFMPEG` and
+  `FFPROBE`, then from ayon-core's `get_oiio_tool_args` /
+  `get_ffmpeg_tool_args` (with `ayon run` the launcher's tools, usually
+  not on `PATH`), then from `PATH`. The runner prints which ones it uses;
+  tests that miss a tool are skipped.
 
 ## How it works
 

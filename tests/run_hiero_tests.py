@@ -205,6 +205,61 @@ def _kill_process_group(process):
         pass
 
 
+# Tools the test fixtures use: environment variable and executable name
+TOOLS = (
+    ("OIIOTOOL", "oiiotool"),
+    ("FFMPEG", "ffmpeg"),
+    ("FFPROBE", "ffprobe"),
+)
+
+
+def _ayon_tools():
+    """Paths of the oiiotool, ffmpeg and ffprobe that ayon-core provides.
+
+    With `ayon run` the tools come from the AYON launcher's addons through
+    ayon-core and are usually not on PATH. Without ayon-core this returns
+    an empty dict.
+    """
+    try:
+        from ayon_core.lib import get_ffmpeg_tool_args, get_oiio_tool_args
+    except Exception:
+        return {}
+
+    getters = {
+        "oiiotool": get_oiio_tool_args,
+        "ffmpeg": get_ffmpeg_tool_args,
+        "ffprobe": get_ffmpeg_tool_args,
+    }
+    tools = {}
+    for env_name, name in TOOLS:
+        try:
+            args = getters[name](name)
+        except Exception:
+            continue
+        # The fixtures run one executable, not a wrapper with arguments
+        if args and len(args) == 1 and os.path.isfile(args[0]):
+            tools[env_name] = args[0]
+    return tools
+
+
+def _set_tools(env):
+    """Point the fixtures to the tools, AYON's when PATH has none.
+
+    Variables set by the user win, then ayon-core's tools, then PATH.
+    """
+    for env_name, path in _ayon_tools().items():
+        env.setdefault(env_name, path)
+    for env_name, name in TOOLS:
+        path = env.get(env_name) or shutil.which(name, path=env.get("PATH"))
+        if path:
+            _log(f"{name}: {path}")
+        else:
+            _log(
+                f"{name} not found (set {env_name}): the tests that need it"
+                " are skipped."
+            )
+
+
 def run(executable, test_paths, pytest_args, timeout):
     os.makedirs(RESULTS_DIR, exist_ok=True)
     run_dir = tempfile.mkdtemp(prefix="hiero_tests_")
@@ -220,6 +275,7 @@ def run(executable, test_paths, pytest_args, timeout):
             "HIERO_TEST_RESULT": result_path,
         }
     )
+    _set_tools(env)
     command = [executable, "--hiero", "-q", "--script", BOOTSTRAP]
     _log("Starting: " + " ".join(command))
     hiero_output = open(os.path.join(run_dir, "hiero.log"), "w")
