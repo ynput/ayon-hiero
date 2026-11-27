@@ -163,3 +163,7 @@ Temporary Items
 
 # ignore mkdocs build
 site/
+
+# In-DCC test dependencies and results (tests/run_hiero_tests.py)
+/tests/.deps/
+/tests/.results/
