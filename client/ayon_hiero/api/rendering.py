@@ -377,7 +377,7 @@ def render_track_item(
     # Handles clamped to the media available around the cut, in source
     # frames ('handleInLength()' counts timeline frames)
     clip_last = int(track_item.source().duration()) - 1
-    # Hiero renders black frames outside the media, as many as asked for
+    # Hiero renders black frames outside the media, not media frames
     if source_in < 0 or source_out > clip_last:
         raise RenderError(
             f"Source range {source_in}-{source_out} of"
@@ -398,8 +398,15 @@ def render_track_item(
             item_in - (source_in - head),
             (source_out + tail) - item_out,
         )
+    # Hiero pads missing handles with black frames only down to file frame
+    # 0: below it Hiero starts at file frame 0 and still numbers that
+    # first file 'startFrameIndex' (see 'inputRange()' / 'outputRange()'
+    # of hiero.core.FnExporterBase). Movies are numbered from 1. So the
+    # first frame Hiero renders, relative to the clip start:
+    first_file_frame = int(track_item.source().sourceIn())
+    render_in = max(item_in - cut_handles, -first_file_frame)
     # Number the files so that 'source_in' lands on 'frame_start'
-    first_frame = frame_start - (source_in - (item_in - cut_handles))
+    first_frame = frame_start - (source_in - render_in)
 
     if is_video:
         file_template = f"{name}.{{ext}}"
@@ -428,7 +435,7 @@ def render_track_item(
             [ItemWrapper(track_item)],
             submission,
             progress,
-            frame_count=(item_out - item_in + 1) + 2 * cut_handles,
+            frame_count=(item_out + cut_handles) - render_in + 1,
         )
     except RenderCancelled:
         raise
