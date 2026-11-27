@@ -99,12 +99,14 @@ def test_profile_keeps_original(make_shot, plate_instance):
     ]
 
 
-def test_profile_without_outputs_keeps_original(make_shot, plate_instance):
+def test_profile_without_outputs_raises(make_shot, plate_instance):
+    # The settings refuse such a profile, overrides saved before can have it
+    from ayon_core.pipeline import PublishError
+
     instance = plate_instance(make_shot(), representations=[dict(ORIGINAL)])
 
-    representations = _run(instance, [_profile([])])
-
-    assert representations == [ORIGINAL]
+    with pytest.raises(PublishError, match="no output definitions"):
+        _run(instance, [_profile([])])
     assert not os.path.exists(instance.data["stagingDir"])
 
 
