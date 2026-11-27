@@ -139,22 +139,25 @@ class ProductResourcesProfileModel(BaseSettingsModel):
         title="Publish clip's original media",
         description=(
             "Publish the clip's original media next to the rendered "
-            "outputs. Without a matching profile, or with a profile "
-            "without outputs, nothing is rendered and the original media "
-            "is published."
+            "outputs. Without a matching profile nothing is rendered and "
+            "the original media is published."
         ),
     )
     outputs: list[PlateOutputModel] = SettingsField(
         default_factory=list,
         title="Output definitions",
         description=(
-            "One representation is rendered for each output. Without "
-            "outputs nothing is rendered for the matching tasks."
+            "One representation is rendered for each output. A profile "
+            "needs at least one."
         ),
     )
 
-    @validator("outputs")
-    def validate_unique_outputs(cls, value):
+    @validator("outputs", always=True)
+    def validate_outputs(cls, value):
+        if not value:
+            raise ValueError(
+                "Add at least one output definition to the profile."
+            )
         names = set()
         for output in value:
             name = output.repre_name or output.file_type

@@ -20,10 +20,10 @@ class ExtractProductResources(
     from the clip's source range with Hiero's exporter, retimes are not
     baked. Other product base types are not processed.
 
-    Without a matching profile, or with a profile without outputs, nothing
-    is rendered and the clip's original media, collected by ayon-core's
-    `CollectOTIOProductResources`, is published. With outputs the original
-    media representation is replaced, unless
+    Without a matching profile nothing is rendered and the clip's original
+    media, collected by ayon-core's `CollectOTIOProductResources`, is
+    published. A matching profile without outputs is a settings error.
+    With a profile the original media representation is replaced, unless
     `keep_original_representation` is enabled.
 
     With Hiero's UI the renders run in the export queue and a modal dialog
@@ -52,17 +52,30 @@ class ExtractProductResources(
         if self._get_product_base_type(instance) != "plate":
             return
 
-        profile = self._get_profile(instance) or {}
-        outputs = profile.get("outputs") or []
-        if not outputs:
+        profile = self._get_profile(instance)
+        if not profile:
             task = instance.data.get("anatomyData", {}).get("task") or {}
             self.log.debug(
-                "No outputs to render for task type '%s', task '%s', the "
-                "clip's original media is published.",
+                "No profile for task type '%s', task '%s', the clip's "
+                "original media is published.",
                 task.get("type"),
                 task.get("name"),
             )
             return
+
+        outputs = profile.get("outputs") or []
+        if not outputs:
+            # The settings refuse such a profile; overrides saved before
+            # can still have one
+            raise PublishError(
+                "The matching profile of 'Extract Product Resources' has no "
+                "output definitions.",
+                description=(
+                    "Add at least one output definition to the profile "
+                    "matching the task, in the Hiero addon settings: "
+                    "`Publish plugins > Extract Product Resources`."
+                ),
+            )
 
         keep_original = bool(profile.get("keep_original_representation"))
         instance.data.setdefault("representations", [])
@@ -192,11 +205,7 @@ class ExtractProductResources(
         instance.data["handleStart"], instance.data["handleEnd"] = handles
 
     def _get_profile(self, instance) -> Optional[Dict[str, Any]]:
-        """Profile matching the publishing task, None without one.
-
-        A matching profile without outputs renders nothing, like no
-        matching profile: the clip's original media is published.
-        """
+        """Profile matching the publishing task, None without one."""
         task = instance.data.get("anatomyData", {}).get("task") or {}
         return filter_profiles(
             self.profiles,
