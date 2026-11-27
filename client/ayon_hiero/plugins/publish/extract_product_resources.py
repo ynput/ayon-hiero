@@ -13,17 +13,18 @@ class ExtractProductResources(
     publish.Extractor,
     publish.ColormanagedPyblishPluginMixin,
 ):
-    """Render additional representations of a clip product.
+    """Render additional representations of a plate product.
 
     Profiles from `hiero/publish/ExtractProductResources/profiles` match
-    the publishing task and the product base type. Each output of the
-    matching profile is rendered from the clip's source range with
-    Hiero's exporter, retimes are not baked.
+    the publishing task. Each output of the matching profile is rendered
+    from the clip's source range with Hiero's exporter, retimes are not
+    baked. Other product base types are not processed.
 
-    Without a matching profile nothing is rendered and the clip's original
-    media, collected by ayon-core's `CollectOTIOProductResources`, is
-    published. With a profile the original media representation is
-    replaced, unless `keep_original_representation` is enabled.
+    Without a matching profile, or with a profile without outputs, nothing
+    is rendered and the clip's original media, collected by ayon-core's
+    `CollectOTIOProductResources`, is published. With outputs the original
+    media representation is replaced, unless
+    `keep_original_representation` is enabled.
 
     With Hiero's UI the renders run in the export queue and a modal dialog
     shows which clip and output renders and how far the publish is, with
@@ -48,22 +49,20 @@ class ExtractProductResources(
     profiles: List[Dict[str, Any]] = []
 
     def process(self, instance):
-        product_base_type = self._get_product_base_type(instance)
-        profile = self._get_profile(instance, product_base_type)
-        if not profile:
+        if self._get_product_base_type(instance) != "plate":
             return
 
-        outputs = profile.get(product_base_type) or []
+        profile = self._get_profile(instance) or {}
+        outputs = profile.get("outputs") or []
         if not outputs:
-            raise PublishError(
-                f"Profile '{profile.get('name')}' of 'Extract Product "
-                "Resources' has no output definitions.",
-                description=(
-                    "Add at least one output definition to the profile in "
-                    "the Hiero addon settings: `Publish plugins > Extract "
-                    "Product Resources`."
-                ),
+            task = instance.data.get("anatomyData", {}).get("task") or {}
+            self.log.debug(
+                "No outputs to render for task type '%s', task '%s', the "
+                "clip's original media is published.",
+                task.get("type"),
+                task.get("name"),
             )
+            return
 
         keep_original = bool(profile.get("keep_original_representation"))
         instance.data.setdefault("representations", [])
@@ -76,8 +75,8 @@ class ExtractProductResources(
         for name in names:
             if name in taken:
                 raise PublishError(
-                    f"Representation name '{name}' of profile "
-                    f"'{profile.get('name')}' is used twice.",
+                    f"Representation name '{name}' of the matching profile "
+                    "is used twice.",
                     description=(
                         "Each output needs its own representation name, "
                         "different from the original media one "
@@ -140,9 +139,9 @@ class ExtractProductResources(
             for other in pyblish.api.instances_by_plugin(context, type(self)):
                 if not other.data.get("publish", True):
                     continue
-                product_base_type = self._get_product_base_type(other)
-                profile = self._get_profile(other, product_base_type)
-                outputs = (profile or {}).get(product_base_type) or []
+                if self._get_product_base_type(other) != "plate":
+                    continue
+                outputs = (self._get_profile(other) or {}).get("outputs")
                 if outputs:
                     plan[other.id] = len(outputs)
             context.data["hieroProductResourcesRenders"] = plan
@@ -192,28 +191,21 @@ class ExtractProductResources(
         version_data["handleStart"], version_data["handleEnd"] = handles
         instance.data["handleStart"], instance.data["handleEnd"] = handles
 
-    def _get_profile(
-        self, instance, product_base_type: str
-    ) -> Optional[Dict[str, Any]]:
+    def _get_profile(self, instance) -> Optional[Dict[str, Any]]:
+        """Profile matching the publishing task, None without one.
+
+        A matching profile without outputs renders nothing, like no
+        matching profile: the clip's original media is published.
+        """
         task = instance.data.get("anatomyData", {}).get("task") or {}
-        profile = filter_profiles(
+        return filter_profiles(
             self.profiles,
             {
                 "task_types": task.get("type"),
                 "task_names": task.get("name"),
-                "product_base_type": product_base_type,
             },
             logger=self.log,
         )
-        if not profile:
-            self.log.debug(
-                "No profile for task type '%s', task '%s' and product base "
-                "type '%s', the clip's original media is published.",
-                task.get("type"),
-                task.get("name"),
-                product_base_type,
-            )
-        return profile
 
     def _get_source_range(
         self, instance

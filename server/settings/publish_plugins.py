@@ -8,12 +8,6 @@ from ayon_server.settings import (
 )
 
 
-def _product_resources_product_base_types_enum():
-    return [
-        {"value": "plate", "label": "Plate"},
-    ]
-
-
 def _render_file_types_enum():
     return [
         {"value": "exr", "label": "OpenEXR"},
@@ -130,14 +124,6 @@ class PlateOutputModel(BaseSettingsModel):
 
 
 class ProductResourcesProfileModel(BaseSettingsModel):
-    name: str = SettingsField(
-        "",
-        title="Profile name",
-        description=(
-            "Name of the profile. Empty gets a name by the product base "
-            "type on save."
-        ),
-    )
     task_types: list[str] = SettingsField(
         default_factory=list,
         title="Task types",
@@ -148,28 +134,26 @@ class ProductResourcesProfileModel(BaseSettingsModel):
         default_factory=list,
         title="Task names",
     )
-    product_base_type: str = SettingsField(
-        "plate",
-        title="Product base type",
-        enum_resolver=_product_resources_product_base_types_enum,
-        conditional_enum=True,
-    )
     keep_original_representation: bool = SettingsField(
         False,
         title="Publish clip's original media",
         description=(
             "Publish the clip's original media next to the rendered "
-            "outputs. Without a matching profile nothing is rendered and "
-            "the original media is always published."
+            "outputs. Without a matching profile, or with a profile "
+            "without outputs, nothing is rendered and the original media "
+            "is published."
         ),
     )
-    plate: list[PlateOutputModel] = SettingsField(
+    outputs: list[PlateOutputModel] = SettingsField(
         default_factory=list,
         title="Output definitions",
-        description="One representation is rendered for each output.",
+        description=(
+            "One representation is rendered for each output. Without "
+            "outputs nothing is rendered for the matching tasks."
+        ),
     )
 
-    @validator("plate")
+    @validator("outputs")
     def validate_unique_outputs(cls, value):
         names = set()
         for output in value:
@@ -181,10 +165,10 @@ class ProductResourcesProfileModel(BaseSettingsModel):
 
 
 class ExtractProductResourcesModel(BaseSettingsModel):
-    """Render additional representations of clip products.
+    """Render additional representations of plate products.
 
-    Profiles match the publishing task and the product base type. Without
-    a matching profile the clip's original media is published.
+    Profiles match the publishing task. Without a matching profile the
+    clip's original media is published.
     """
 
     render_submission: str = SettingsField(
@@ -201,24 +185,6 @@ class ExtractProductResourcesModel(BaseSettingsModel):
         default_factory=list,
         title="Profiles",
     )
-
-    @validator("profiles")
-    def validate_profile_names(cls, value):
-        # Name unnamed profiles by product base type, e.g. 'Plate #2'
-        labels = {"plate": "Plate"}
-        used_names = {profile.name for profile in value if profile.name}
-        for profile in value:
-            label = labels.get(profile.product_base_type)
-            if profile.name or label is None:
-                continue
-            index = 1
-            while f"{label} #{index}" in used_names:
-                index += 1
-            profile.name = f"{label} #{index}"
-            used_names.add(profile.name)
-
-        ensure_unique_names(value)
-        return value
 
 
 class PublishPluginsModel(BaseSettingsModel):
